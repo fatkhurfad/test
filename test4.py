@@ -79,7 +79,7 @@ def show_main_app():
         st.session_state.username = ""
         st.rerun()
 
-    st.title("\U0001F4C4 Generator Surat Massal + Hyperlink Aktif")
+    st.title("\U0001F4C4 GENERATOR SURAT MASSAL BY PMT")
 
     template_file = st.file_uploader("\U0001F4CE Upload Template Word (.docx)", type="docx")
     data_file = st.file_uploader("\U0001F4C8 Upload Excel Data (.xlsx)", type="xlsx")
