@@ -46,20 +46,25 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Render isi dokumen seperti tampilan Word
+# Fungsi pratinjau dengan tampilan rapi seperti dokumen
 def render_docx_preview(doc):
-    st.subheader("📖 Pratinjau Isi Surat (Seperti Word)")
-    html_content = "<div style='background-color:white; padding:40px; border:1px solid #ccc; border-radius:8px; font-family:Arial; font-size:14px; text-align:justify; line-height:1.6;'>"
+    st.subheader("📖 Pratinjau Isi Surat (Simulasi Format Dokumen)")
+    st.markdown(
+        """
+        <div style='background-color: #fff; border: 1px solid #ddd; padding: 35px 40px; border-radius: 6px;
+                    font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: justify; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>
+        """,
+        unsafe_allow_html=True
+    )
     for p in doc.paragraphs:
         if p.text.strip():
-            html_content += f"<p>{p.text}</p>"
-    html_content += "</div>"
-    st.markdown(html_content, unsafe_allow_html=True)
+            st.markdown(f"<p>{p.text}</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Halaman login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
-    st.title("\U0001F4EC Selamat Datang di Aplikasi Surat Massal PMT")
+    st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
     st.markdown("Silakan login untuk menggunakan aplikasi ini.")
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -82,19 +87,19 @@ def show_main_app():
         st.session_state.username = ""
         st.rerun()
 
-    st.title("\U0001F4C4 Generator Surat Massal + Hyperlink Aktif")
+    st.title("📄 Generator Surat Massal + Hyperlink Aktif")
 
-    template_file = st.file_uploader("\U0001F4CE Upload Template Word (.docx)", type="docx")
-    data_file = st.file_uploader("\U0001F4C8 Upload Excel Data (.xlsx)", type="xlsx")
+    template_file = st.file_uploader("📎 Upload Template Word (.docx)", type="docx")
+    data_file = st.file_uploader("📊 Upload Excel Data (.xlsx)", type="xlsx")
 
     if template_file and data_file:
         df = pd.read_excel(data_file)
-        st.write("\U0001F4CB Pratinjau Data:")
+        st.write("📋 Pratinjau Data:")
         st.dataframe(df)
 
-        col_nama = st.selectbox("\U0001F9FE Kolom Nama", df.columns)
-        col_link = st.selectbox("\U0001F517 Kolom Short Link", df.columns)
-        nama_preview = st.selectbox("\U0001F50D Pilih Nama untuk Preview", df[col_nama].unique())
+        col_nama = st.selectbox("🧾 Kolom Nama", df.columns)
+        col_link = st.selectbox("🔗 Kolom Short Link", df.columns)
+        nama_preview = st.selectbox("🔍 Pilih Nama untuk Preview", df[col_nama].unique())
 
         if nama_preview:
             row = df[df[col_nama] == nama_preview].iloc[0]
@@ -109,9 +114,11 @@ def show_main_app():
                 if "[short_link]" in p.text:
                     parts = p.text.split("[short_link]")
                     p.clear()
-                    if parts[0]: p.add_run(parts[0])
+                    if parts[0]:
+                        p.add_run(parts[0])
                     add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                    if len(parts) > 1: p.add_run(parts[1])
+                    if len(parts) > 1:
+                        p.add_run(parts[1])
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             for p in doc.paragraphs:
                 for run in p.runs:
@@ -130,7 +137,7 @@ def show_main_app():
                 file_name=f"preview_{row[col_nama]}.docx"
             )
 
-        if st.button("\U0001F680 Generate Semua Surat"):
+        if st.button("🚀 Generate Semua Surat"):
             output_zip = BytesIO()
             log = []
 
@@ -148,9 +155,11 @@ def show_main_app():
                             if "[short_link]" in p.text:
                                 parts = p.text.split("[short_link]")
                                 p.clear()
-                                if parts[0]: p.add_run(parts[0])
+                                if parts[0]:
+                                    p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                                if len(parts) > 1: p.add_run(parts[1])
+                                if len(parts) > 1:
+                                    p.add_run(parts[1])
                             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                         for p in doc.paragraphs:
                             for run in p.runs:
@@ -166,10 +175,10 @@ def show_main_app():
 
             st.success("✅ Semua surat berhasil dibuat!")
             output_zip.seek(0)
-            st.download_button("\U0001F4E6 Download ZIP Semua Surat", output_zip.getvalue(), file_name="surat_hyperlink.zip")
+            st.download_button("📦 Download ZIP Semua Surat", output_zip.getvalue(), file_name="surat_hyperlink.zip")
             st.dataframe(pd.DataFrame(log))
 
-# Routing
+# Routing halaman berdasarkan status login/logout
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
