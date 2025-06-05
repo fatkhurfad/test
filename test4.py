@@ -14,8 +14,8 @@ import zipfile
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(
-        url, 
-        reltype="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", 
+        url,
+        reltype="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
         is_external=True
     )
 
@@ -45,7 +45,7 @@ def add_hyperlink(paragraph, text, url):
     new_run.append(rPr)
 
     text_elem = OxmlElement("w:t")
-    text_elem.set(qn("xml:space"), "preserve")  # Penting agar spasi dipertahankan
+    text_elem.set(qn("xml:space"), "preserve")
     text_elem.text = text
     new_run.append(text_elem)
 
@@ -113,6 +113,7 @@ def show_main_app():
             with zipfile.ZipFile(output_zip, "w") as zf:
                 for _, row in df.iterrows():
                     try:
+                        # Render template
                         tpl = DocxTemplate(template_file)
                         tpl.render({
                             "nama_penyelenggara": row[col_nama],
@@ -122,6 +123,7 @@ def show_main_app():
                         tpl.save(temp_buf)
                         temp_buf.seek(0)
 
+                        # Inject hyperlink ke dalam dokumen
                         doc = Document(temp_buf)
                         for p in doc.paragraphs:
                             if "[short_link]" in p.text:
@@ -130,8 +132,9 @@ def show_main_app():
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
-                                p.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Tambahan agar paragraf rata kiri
+                                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
+                        # Format ulang font
                         for p in doc.paragraphs:
                             for run in p.runs:
                                 run.font.name = "Arial"
