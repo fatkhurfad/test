@@ -48,13 +48,13 @@ def add_hyperlink(paragraph, text, url):
 
 # Render isi dokumen seperti tampilan Word
 def render_docx_preview(doc):
-    st.subheader("📖 Pratinjau Isi Surat (Mirip Word)")
+    st.subheader("📖 Pratinjau Isi Surat (Seperti Word)")
+    html_content = "<div style='background-color:white; padding:40px; border:1px solid #ccc; border-radius:8px; font-family:Arial; font-size:14px; text-align:justify; line-height:1.6;'>"
     for p in doc.paragraphs:
         if p.text.strip():
-            st.markdown(
-                f"<div style='text-align: justify; font-family: Arial; font-size: 14px;'>{p.text}</div>",
-                unsafe_allow_html=True
-            )
+            html_content += f"<p>{p.text}</p>"
+    html_content += "</div>"
+    st.markdown(html_content, unsafe_allow_html=True)
 
 # Halaman login
 def show_login():
