@@ -1,13 +1,45 @@
+from docxtpl import DocxTemplate
+from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Pt
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from docxtpl import DocxTemplate
-from docx import Document
-from docx.shared import Pt
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from io import BytesIO
 import zipfile
+
+def add_hyperlink(paragraph, text, url):
+    part = paragraph.part
+    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), r_id)
+    new_run = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    rFonts = OxmlElement("w:rFonts")
+    rFonts.set(qn("w:ascii"), "Arial")
+    rFonts.set(qn("w:hAnsi"), "Arial")
+    rPr.append(rFonts)
+
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), "24")  # 12 pt
+    rPr.append(sz)
+
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0000FF")
+    rPr.append(color)
+
+    underline = OxmlElement("w:u")
+    underline.set(qn("w:val"), "single")
+    rPr.append(underline)
+
+    new_run.append(rPr)
+    text_elem = OxmlElement("w:t")
+    text_elem.text = text
+    new_run.append(text_elem)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
 
 # Inisialisasi session
 if "login_state" not in st.session_state:
@@ -63,44 +95,45 @@ def show_main_app():
 
         if st.button("🚀 Generate Semua Surat"):
             output_zip = BytesIO()
-            failed = []
-            success = 0
-
+            log = []
             with zipfile.ZipFile(output_zip, "w") as zf:
                 for idx, row in df.iterrows():
                     try:
-                        doc = Document(uploaded_template)
+                        context = {
+                            "nama_penyelenggara": row[col_nama],
+                            "short_link": "[short_link]"
+                        }
+                        tpl = DocxTemplate(template_file)
+                        tpl.render(context)
 
-                        for p in doc.paragraphs:
-                            for run in p.runs:
-                                if "{{nama_penyelenggara}}" in run.text:
-                                    run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+                        temp_buf = BytesIO()
+                        tpl.save(temp_buf)
+                        temp_buf.seek(0)
 
+                        doc = Document(temp_buf)
                         for p in doc.paragraphs:
-                            if "{{short_link}}" in p.text:
-                                parts = p.text.split("{{short_link}}")
+                            if "[short_link]" in p.text:
+                                parts = p.text.split("[short_link]")
                                 p.clear()
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
-
                         for p in doc.paragraphs:
                             for run in p.runs:
                                 run.font.name = "Arial"
                                 run.font.size = Pt(12)
 
-                        custom_filename = file_name_format.replace("{{nama_penyelenggara}}", str(row[col_nama]))
-                        filename = f"{custom_filename.replace('/', '-')}.docx"
-
-                        buffer = BytesIO()
-                        doc.save(buffer)
-                        zf.writestr(filename, buffer.getvalue())
-                        success += 1
+                        final_buf = BytesIO()
+                        doc.save(final_buf)
+                        zf.writestr(f"{row[col_nama]}.docx", final_buf.getvalue())
+                        log.append({"Nama": row[col_nama], "Status": "✅ Berhasil"})
                     except Exception as e:
-                        failed.append((idx + 1, str(row[col_nama]), str(e)))
-                st.success("✅ Surat selesai dibuat.")
-                st.download_button("📦 Download Semua Surat (ZIP)", zip_buffer.getvalue(), file_name="surat_massal.zip")
-                st.dataframe(pd.DataFrame(log))
+                        log.append({"Nama": row[col_nama], "Status": f"❌ Gagal: {str(e)}"})
+
+            st.success("✅ Semua surat berhasil diproses.")
+            output_zip.seek(0)
+            st.download_button("📦 Download Semua Surat (ZIP)", output_zip.getvalue(), file_name="surat_massal.zip")
+            st.dataframe(pd.DataFrame(log))
 
 if st.session_state.login_state:
     show_main_app()
