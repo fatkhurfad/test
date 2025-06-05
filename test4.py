@@ -31,7 +31,6 @@ if not st.session_state.login_state:
                 st.session_state.login_state = True
                 st.session_state.login_time = time.time()
                 st.success("✅ Login berhasil!")
-st.stop()
             else:
                 st.error("❌ Username atau password salah.")
                 st.stop()
