@@ -46,12 +46,15 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Konversi isi dokumen menjadi teks
-def get_docx_text(doc):
-    text = ""
+# Render isi dokumen seperti tampilan Word
+def render_docx_preview(doc):
+    st.subheader("📖 Pratinjau Isi Surat (Mirip Word)")
     for p in doc.paragraphs:
-        text += p.text + "\n"
-    return text
+        if p.text.strip():
+            st.markdown(
+                f"<div style='text-align: justify; font-family: Arial; font-size: 14px;'>{p.text}</div>",
+                unsafe_allow_html=True
+            )
 
 # Halaman login
 def show_login():
@@ -79,7 +82,7 @@ def show_main_app():
         st.session_state.username = ""
         st.rerun()
 
-    st.title("\U0001F4C4 GENERATOR SURAT MASSAL BY PMT")
+    st.title("\U0001F4C4 Generator Surat Massal + Hyperlink Aktif")
 
     template_file = st.file_uploader("\U0001F4CE Upload Template Word (.docx)", type="docx")
     data_file = st.file_uploader("\U0001F4C8 Upload Excel Data (.xlsx)", type="xlsx")
@@ -119,8 +122,7 @@ def show_main_app():
             doc.save(preview_buf)
             preview_buf.seek(0)
 
-            st.subheader("\U0001F4D6 Pratinjau Isi Surat")
-            st.code(get_docx_text(doc), language="text")
+            render_docx_preview(doc)
 
             st.download_button(
                 label=f"⬇️ Download Preview Surat ({row[col_nama]})",
