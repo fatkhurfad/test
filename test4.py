@@ -73,7 +73,7 @@ if st.session_state.login_state:
             st.session_state.login_state = False
             st.session_state.login_time = 0
             st.success("🚪 Anda telah logout.")
-            st.experimental_rerun()
+    
 
     uploaded_template = st.file_uploader("📄 Upload Template Word (.docx)", type="docx")
     uploaded_excel = st.file_uploader("📊 Upload Data Excel (.xlsx)", type="xlsx")
