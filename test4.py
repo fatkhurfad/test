@@ -118,11 +118,15 @@ def show_main_app():
             doc.save(preview_buf)
             preview_buf.seek(0)
 
-            st.download_button(
-                label=f"⬇️ Download Preview Surat ({row[col_nama]})",
-                data=preview_buf.getvalue(),
-                file_name=f"preview_{row[col_nama]}.docx"
-            )
+            st.subheader("📖 Pratinjau Isi Surat")
+            st.code(get_docx_text(doc), language="text")
+
+st.download_button(
+    label=f"⬇️ Download Preview Surat ({row[col_nama]})",
+    data=preview_buf.getvalue(),
+    file_name=f"preview_{row[col_nama]}.docx"
+)
+
 
         # Tombol generate semua
         if st.button("🚀 Generate Semua Surat"):
