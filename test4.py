@@ -6,34 +6,49 @@ from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 
-# Tambah hyperlink aktif ke paragraf
+# Fungsi menambahkan hyperlink aktif
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
-    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+    r_id = part.relate_to(
+        url, 
+        reltype="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", 
+        is_external=True
+    )
+
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("r:id"), r_id)
+
     new_run = OxmlElement("w:r")
     rPr = OxmlElement("w:rPr")
+
     rFonts = OxmlElement("w:rFonts")
     rFonts.set(qn("w:ascii"), "Arial")
     rFonts.set(qn("w:hAnsi"), "Arial")
     rPr.append(rFonts)
+
     sz = OxmlElement("w:sz")
     sz.set(qn("w:val"), "24")
     rPr.append(sz)
+
     color = OxmlElement("w:color")
     color.set(qn("w:val"), "0000FF")
     rPr.append(color)
+
     underline = OxmlElement("w:u")
     underline.set(qn("w:val"), "single")
     rPr.append(underline)
+
     new_run.append(rPr)
+
     text_elem = OxmlElement("w:t")
+    text_elem.set(qn("xml:space"), "preserve")  # Penting agar spasi dipertahankan
     text_elem.text = text
     new_run.append(text_elem)
+
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
@@ -115,6 +130,7 @@ def show_main_app():
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
+                                p.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Tambahan agar paragraf rata kiri
 
                         for p in doc.paragraphs:
                             for run in p.runs:
