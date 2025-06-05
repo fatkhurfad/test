@@ -65,21 +65,23 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# 🔐 Login
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# 🛡️ Login Sederhana dengan Validasi
+def login():
+    st.title("🔐 Login Aplikasi Generator Surat")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login")
+        if submitted:
+            if username == "admin" and password == "surat123":
+                st.session_state.logged_in = True
+                st.success("✅ Login berhasil! Aplikasi siap digunakan.")
+            else:
+                st.error("❌ Username atau password salah.")
 
-if not st.session_state.logged_in:
-    st.title("🔐 Login Dulu")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username == "admin" and password == "surat123":
-            st.session_state.logged_in = True
-            st.success("Berhasil login! ✅")
-            st.experimental_rerun()
-        else:
-            st.error("Username atau password salah.")
+# ⛔ Cek apakah sudah login
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    login()
     st.stop()
 
 # App setelah login
