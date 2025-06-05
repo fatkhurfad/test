@@ -8,17 +8,18 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import zipfile
 
-# Init session
+# Inisialisasi session state
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 if "username" not in st.session_state:
     st.session_state.username = ""
 
+# Fungsi login
 def show_login():
     st.set_page_config(page_title="Login | Generator Surat", layout="centered")
     st.markdown("## 👋 Selamat Datang di Aplikasi Generator Surat Massal")
     st.markdown("""
-    Aplikasi ini membantu kamu menghasilkan surat massal otomatis dari template Word dan data Excel.  
+    Aplikasi ini membantu kamu menghasilkan surat massal secara otomatis dari template Word dan data Excel.  
     Silakan login untuk memulai.
     """)
 
@@ -33,6 +34,7 @@ def show_login():
             else:
                 st.error("❌ Username atau password salah.")
 
+# Fungsi hyperlink
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
@@ -60,6 +62,7 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Fungsi utama aplikasi
 def show_main_app():
     st.sidebar.markdown(f"Halo, **{st.session_state.username}** 👋")
     if st.sidebar.button("🔓 Logout"):
@@ -101,58 +104,41 @@ def show_main_app():
                         run.font.name = "Arial"
                         run.font.size = Pt(12)
 
-                st.subheader("📄 Preview Isi Surat")
-                st.text_area("Isi Surat", "\n".join([p.text for p in doc.paragraphs]), height=400, disabled=True)
+                buf = BytesIO()
+                doc.save(buf)
+                buf.seek(0)
+                st.download_button("⬇️ Download Preview", buf.getvalue(), file_name=f"preview_{row[col_nama]}.docx")
 
             if st.button("🚀 Generate Semua Surat"):
-                with st.spinner("Sedang membuat semua surat..."):
-                    output = BytesIO()
-                    failed = []
-                    success = 0
-                    activity_log = []
-
-                    with zipfile.ZipFile(output, "w") as zf:
-                        for _, row in df.iterrows():
-                            try:
-                                doc = Document(uploaded_template)
-                                for p in doc.paragraphs:
-                                    for run in p.runs:
-                                        run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
-                                for p in doc.paragraphs:
-                                    if "{{short_link}}" in p.text:
-                                        parts = p.text.split("{{short_link}}")
-                                        p.clear()
-                                        if parts[0]: p.add_run(parts[0])
-                                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                                        if len(parts) > 1: p.add_run(parts[1])
-                                for p in doc.paragraphs:
-                                    for run in p.runs:
-                                        run.font.name = "Arial"
-                                        run.font.size = Pt(12)
-                                temp_buf = BytesIO()
-                                doc.save(temp_buf)
-                                zf.writestr(f"{row[col_nama]}.docx", temp_buf.getvalue())
-                                activity_log.append({
-                                    "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "Nama": row[col_nama],
-                                    "Status": "Berhasil"
-                                })
-                                success += 1
-                            except Exception as e:
-                                failed.append((row[col_nama], str(e)))
-                                activity_log.append({
-                                    "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "Nama": row[col_nama],
-                                    "Status": "Gagal"
-                                })
-
-                    st.success(f"✅ {success} surat berhasil dibuat.")
-                    if failed:
-                        st.error(f"❌ {len(failed)} gagal.")
-                        st.dataframe(pd.DataFrame(failed, columns=["Nama", "Error"]))
-
-                    st.download_button("📥 Download Semua Surat (ZIP)", output.getvalue(), "surat_massal.zip", mime="application/zip")
-                    st.session_state["activity_log"] = pd.DataFrame(activity_log)
+                output = BytesIO()
+                activity_log = []
+                with zipfile.ZipFile(output, "w") as zf:
+                    for _, row in df.iterrows():
+                        doc = Document(uploaded_template)
+                        for p in doc.paragraphs:
+                            for run in p.runs:
+                                run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+                        for p in doc.paragraphs:
+                            if "{{short_link}}" in p.text:
+                                parts = p.text.split("{{short_link}}")
+                                p.clear()
+                                if parts[0]: p.add_run(parts[0])
+                                add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                                if len(parts) > 1: p.add_run(parts[1])
+                        for p in doc.paragraphs:
+                            for run in p.runs:
+                                run.font.name = "Arial"
+                                run.font.size = Pt(12)
+                        temp_buf = BytesIO()
+                        doc.save(temp_buf)
+                        zf.writestr(f"{row[col_nama]}.docx", temp_buf.getvalue())
+                        activity_log.append({
+                            "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "Nama": row[col_nama],
+                            "Status": "Berhasil"
+                        })
+                st.download_button("📥 Download Semua Surat (ZIP)", output.getvalue(), "surat_massal.zip", mime="application/zip")
+                st.session_state["activity_log"] = pd.DataFrame(activity_log)
 
     elif nav == "📊 Laporan Aktivitas":
         st.title("📊 Laporan Aktivitas")
