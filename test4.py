@@ -64,10 +64,6 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# 🔐 Login
-if "login_state" not in st.session_state:
-    st.session_state.login_state = False
-
 if not st.session_state.login_state:
     st.title("🔐 Login")
     with st.form("login_form"):
@@ -76,7 +72,7 @@ if not st.session_state.login_state:
         if st.form_submit_button("Login"):
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
-                st.success("✅ Login berhasil! Silakan lanjutkan ke bawah.")
+                st.experimental_rerun()  # ⬅️ Tambahkan ini untuk auto-refresh UI
             else:
                 st.error("❌ Username atau password salah.")
 
