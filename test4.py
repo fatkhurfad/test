@@ -46,10 +46,17 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Konversi isi dokumen menjadi teks
+def get_docx_text(doc):
+    text = ""
+    for p in doc.paragraphs:
+        text += p.text + "\n"
+    return text
+
 # Halaman login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
-    st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
+    st.title("\U0001F4EC Selamat Datang di Aplikasi Surat Massal PMT")
     st.markdown("Silakan login untuk menggunakan aplikasi ini.")
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -72,28 +79,24 @@ def show_main_app():
         st.session_state.username = ""
         st.rerun()
 
-    st.title("📄 Generator Surat Massal + Hyperlink Aktif")
+    st.title("\U0001F4C4 Generator Surat Massal + Hyperlink Aktif")
 
-    template_file = st.file_uploader("📎 Upload Template Word (.docx)", type="docx")
-    data_file = st.file_uploader("📊 Upload Excel Data (.xlsx)", type="xlsx")
+    template_file = st.file_uploader("\U0001F4CE Upload Template Word (.docx)", type="docx")
+    data_file = st.file_uploader("\U0001F4C8 Upload Excel Data (.xlsx)", type="xlsx")
 
     if template_file and data_file:
         df = pd.read_excel(data_file)
-        st.write("📋 Pratinjau Data:")
+        st.write("\U0001F4CB Pratinjau Data:")
         st.dataframe(df)
 
-        col_nama = st.selectbox("🧾 Kolom Nama", df.columns)
-        col_link = st.selectbox("🔗 Kolom Short Link", df.columns)
-        nama_preview = st.selectbox("🔍 Pilih Nama untuk Preview", df[col_nama].unique())
+        col_nama = st.selectbox("\U0001F9FE Kolom Nama", df.columns)
+        col_link = st.selectbox("\U0001F517 Kolom Short Link", df.columns)
+        nama_preview = st.selectbox("\U0001F50D Pilih Nama untuk Preview", df[col_nama].unique())
 
-        # Tombol preview surat
         if nama_preview:
             row = df[df[col_nama] == nama_preview].iloc[0]
             tpl = DocxTemplate(template_file)
-            tpl.render({
-                "nama_penyelenggara": row[col_nama],
-                "short_link": "[short_link]"
-            })
+            tpl.render({"nama_penyelenggara": row[col_nama], "short_link": "[short_link]"})
             temp_buf = BytesIO()
             tpl.save(temp_buf)
             temp_buf.seek(0)
@@ -106,10 +109,8 @@ def show_main_app():
                     if parts[0]: p.add_run(parts[0])
                     add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                     if len(parts) > 1: p.add_run(parts[1])
-                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-            for p in doc.paragraphs:
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            for p in doc.paragraphs:
                 for run in p.runs:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
@@ -118,18 +119,16 @@ def show_main_app():
             doc.save(preview_buf)
             preview_buf.seek(0)
 
-            st.subheader("📖 Pratinjau Isi Surat")
+            st.subheader("\U0001F4D6 Pratinjau Isi Surat")
             st.code(get_docx_text(doc), language="text")
 
-st.download_button(
-    label=f"⬇️ Download Preview Surat ({row[col_nama]})",
-    data=preview_buf.getvalue(),
-    file_name=f"preview_{row[col_nama]}.docx"
-)
+            st.download_button(
+                label=f"⬇️ Download Preview Surat ({row[col_nama]})",
+                data=preview_buf.getvalue(),
+                file_name=f"preview_{row[col_nama]}.docx"
+            )
 
-
-        # Tombol generate semua
-        if st.button("🚀 Generate Semua Surat"):
+        if st.button("\U0001F680 Generate Semua Surat"):
             output_zip = BytesIO()
             log = []
 
@@ -137,10 +136,7 @@ st.download_button(
                 for _, row in df.iterrows():
                     try:
                         tpl = DocxTemplate(template_file)
-                        tpl.render({
-                            "nama_penyelenggara": row[col_nama],
-                            "short_link": "[short_link]"
-                        })
+                        tpl.render({"nama_penyelenggara": row[col_nama], "short_link": "[short_link]"})
                         temp_buf = BytesIO()
                         tpl.save(temp_buf)
                         temp_buf.seek(0)
@@ -153,10 +149,8 @@ st.download_button(
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
-                                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-                        for p in doc.paragraphs:
                             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                        for p in doc.paragraphs:
                             for run in p.runs:
                                 run.font.name = "Arial"
                                 run.font.size = Pt(12)
@@ -170,10 +164,10 @@ st.download_button(
 
             st.success("✅ Semua surat berhasil dibuat!")
             output_zip.seek(0)
-            st.download_button("📦 Download ZIP Semua Surat", output_zip.getvalue(), file_name="surat_hyperlink.zip")
+            st.download_button("\U0001F4E6 Download ZIP Semua Surat", output_zip.getvalue(), file_name="surat_hyperlink.zip")
             st.dataframe(pd.DataFrame(log))
 
-# Routing berdasarkan status sesi
+# Routing
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
