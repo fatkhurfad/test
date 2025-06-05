@@ -1,12 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from io import BytesIO
-import zipfile
-from docx import Document
-from docx.shared import Pt
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
+from docxtpl import DocxTemplate
 from io import BytesIO
 import zipfile
 
