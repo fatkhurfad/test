@@ -9,10 +9,14 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 
-# Tambahkan hyperlink aktif ke paragraf
+# Fungsi tambah hyperlink aktif di dokumen Word
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
-    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+    r_id = part.relate_to(
+        url,
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+        is_external=True,
+    )
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("r:id"), r_id)
 
@@ -46,10 +50,15 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Fungsi render preview surat seperti Word (style dasar)
 def render_docx_preview_better(doc):
     st.subheader("📖 Pratinjau Surat Mirip Word")
 
-    html = "<div style='background:#fff; padding:30px; border:1px solid #ddd; border-radius:8px; font-family:Arial, sans-serif; font-size:14px; line-height:1.6; text-align:justify;'>"
+    html = (
+        "<div style='background:#fff; padding:30px; border:1px solid #ddd; "
+        "border-radius:8px; font-family:Arial, sans-serif; font-size:14px; "
+        "line-height:1.6; text-align:justify;'>"
+    )
 
     for p in doc.paragraphs:
         if not p.text.strip():
@@ -75,8 +84,8 @@ def render_docx_preview_better(doc):
 
     st.markdown(html, unsafe_allow_html=True)
 
-# Fungsi untuk generate surat batch dengan progress bar
-def generate_letters(template_file, df, col_name, col_link):
+# Fungsi generate surat batch dengan progress bar
+def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip = BytesIO()
     log = []
 
@@ -88,10 +97,9 @@ def generate_letters(template_file, df, col_name, col_link):
         for idx, row in df.iterrows():
             try:
                 tpl = DocxTemplate(template_file)
-                tpl.render({
-                    "nama_penyelenggara": row[col_name],
-                    "short_link": "[short_link]"
-                })
+                tpl.render(
+                    {"nama_penyelenggara": row[col_name], "short_link": "[short_link]"}
+                )
                 temp_buf = BytesIO()
                 tpl.save(temp_buf)
                 temp_buf.seek(0)
@@ -127,12 +135,12 @@ def generate_letters(template_file, df, col_name, col_link):
     output_zip.seek(0)
     return output_zip, log
 
-# Halaman dashboard
+# Halaman Dashboard
 def page_home():
     st.title("🏠 Dashboard")
     st.write("Selamat datang di aplikasi Surat Massal PMT versi canggih!")
 
-# Halaman generate surat dengan fitur batch dan preview
+# Halaman Generate Surat
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
@@ -146,7 +154,7 @@ def page_generate():
         col_name = st.selectbox("Pilih kolom Nama", df.columns)
         col_link = st.selectbox("Pilih kolom Link", df.columns)
 
-        # Preview surat per nama yang dipilih
+        # Preview surat per penerima
         nama_preview = st.selectbox("Pilih Nama untuk Preview", df[col_name].unique())
         if nama_preview:
             row = df[df[col_name] == nama_preview].iloc[0]
@@ -181,16 +189,20 @@ def page_generate():
             st.download_button(
                 label=f"⬇️ Download Preview Surat ({row[col_name]})",
                 data=preview_buf.getvalue(),
-                file_name=f"preview_{row[col_name]}.docx"
+                file_name=f"preview_{row[col_name]}.docx",
             )
 
         if st.button("Generate Semua Surat"):
-            zip_file, log = generate_letters(template_file, df, col_name, col_link)
+            zip_file, log = generate_letters_with_progress(
+                template_file, df, col_name, col_link
+            )
             st.success("✅ Proses generate selesai!")
-            st.download_button("Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip")
+            st.download_button(
+                "Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip"
+            )
             st.dataframe(pd.DataFrame(log))
 
-# Halaman login
+# Halaman Login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
@@ -207,7 +219,7 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
-# Routing halaman dan logout
+# Routing utama dan halaman logout
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
@@ -224,7 +236,7 @@ def show_main_app():
     elif page == "Generate Surat":
         page_generate()
 
-# Routing utama
+# Entry point
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
