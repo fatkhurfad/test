@@ -59,7 +59,7 @@ def show_login():
                 st.session_state.login_state = True
                 st.session_state.username = username
                 st.session_state.logout_message = False
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Username atau password salah.")
 
@@ -70,7 +70,7 @@ def show_main_app():
         st.session_state.logout_message = True
         st.session_state.login_state = False
         st.session_state.username = ""
-        st.experimental_rerun()
+        st.rerun()
 
     st.title("📄 Generator Surat Massal + Hyperlink Aktif")
 
@@ -179,7 +179,7 @@ if st.session_state.get("logout_message", False):
     st.markdown("Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**")
     if st.button("🔐 Kembali ke Halaman Login"):
         st.session_state.logout_message = False
-        st.experimental_rerun()
+        st.rerun()
 elif st.session_state.login_state:
     show_main_app()
 else:
