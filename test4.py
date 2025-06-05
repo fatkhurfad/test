@@ -46,20 +46,35 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Fungsi pratinjau dengan tampilan rapi seperti dokumen
-def render_docx_preview(doc):
-    st.subheader("📖 Pratinjau Isi Surat (Simulasi Format Dokumen)")
-    st.markdown(
-        """
-        <div style='background-color: #fff; border: 1px solid #ddd; padding: 35px 40px; border-radius: 6px;
-                    font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: justify; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>
-        """,
-        unsafe_allow_html=True
-    )
+# Fungsi pratinjau lebih mirip Word dengan bold, italic, indentasi
+def render_docx_preview_better(doc):
+    st.subheader("📖 Pratinjau Surat Mirip Word")
+
+    html = "<div style='background:#fff; padding:30px; border:1px solid #ddd; border-radius:8px; font-family:Arial, sans-serif; font-size:14px; line-height:1.6; text-align:justify;'>"
+
     for p in doc.paragraphs:
-        if p.text.strip():
-            st.markdown(f"<p>{p.text}</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        if not p.text.strip():
+            continue
+
+        runs_html = ""
+        for run in p.runs:
+            text = run.text.replace("\n", "<br>")
+            style = ""
+            if run.bold:
+                style += "font-weight:bold;"
+            if run.italic:
+                style += "font-style:italic;"
+            runs_html += f"<span style='{style}'>{text}</span>"
+
+        indent = ""
+        if p.paragraph_format.first_line_indent:
+            indent = f"padding-left: {int(p.paragraph_format.first_line_indent.pt)}pt;"
+
+        html += f"<p style='{indent} margin-bottom:1em;'>{runs_html}</p>"
+
+    html += "</div>"
+
+    st.markdown(html, unsafe_allow_html=True)
 
 # Halaman login
 def show_login():
@@ -129,7 +144,7 @@ def show_main_app():
             doc.save(preview_buf)
             preview_buf.seek(0)
 
-            render_docx_preview(doc)
+            render_docx_preview_better(doc)
 
             st.download_button(
                 label=f"⬇️ Download Preview Surat ({row[col_nama]})",
