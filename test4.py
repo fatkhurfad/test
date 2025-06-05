@@ -7,8 +7,12 @@ from docx.oxml.ns import qn
 from io import BytesIO
 import zipfile
 
+# 🖌️ Load Modern CSS
+with open("style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
 st.set_page_config(page_title="Generator Surat Massal", layout="centered")
-st.title("📄 Generator Surat - Validasi + Preview + Rekap")
+st.title("📄 Generator Surat Massal")
 
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
@@ -57,7 +61,12 @@ if uploaded_template and uploaded_excel:
         col_nama = st.selectbox("Ganti {{nama_penyelenggara}} dengan:", df.columns)
         col_link = st.selectbox("Ganti {{short_link}} dengan:", df.columns)
 
-        # Validasi isi placeholder di template
+        file_name_format = st.text_input(
+            "📝 Format nama file output (gunakan {{nama_penyelenggara}})",
+            value="Surat - {{nama_penyelenggara}}"
+        )
+
+        # Validasi isi template
         required_placeholders = ["{{nama_penyelenggara}}", "{{short_link}}"]
         doc_check = Document(uploaded_template)
         doc_text = "\n".join([p.text for p in doc_check.paragraphs])
@@ -65,7 +74,6 @@ if uploaded_template and uploaded_excel:
         if missing_placeholders:
             st.warning(f"⚠️ Template tidak mengandung placeholder: {', '.join(missing_placeholders)}")
 
-        # Validasi kolom Excel
         if col_nama not in df.columns or col_link not in df.columns:
             st.error("❌ Kolom Excel tidak valid.")
             st.stop()
@@ -135,7 +143,9 @@ if uploaded_template and uploaded_excel:
                                 run.font.name = "Arial"
                                 run.font.size = Pt(12)
 
-                        filename = f"{str(row[col_nama]).replace('/', '-')}.docx"
+                        custom_filename = file_name_format.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+                        filename = f"{custom_filename.replace('/', '-')}.docx"
+
                         buffer = BytesIO()
                         doc.save(buffer)
                         zf.writestr(filename, buffer.getvalue())
