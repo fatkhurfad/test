@@ -1,59 +1,36 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-from io import BytesIO
+from docxtpl import DocxTemplate
 from docx import Document
-from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-import zipfile
+from docx.shared import Pt
+from io import BytesIO
 
-# Inisialisasi state
-if "page" not in st.session_state:
-    st.session_state.page = "login"
-if "login_state" not in st.session_state:
-    st.session_state.login_state = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-
-# Login page
-def show_login():
-    st.title("🔐 Login")
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
-            if username == "admin" and password == "surat123":
-                st.session_state.login_state = True
-                st.session_state.username = username
-                st.session_state.page = "main"
-                st.success("✅ Login berhasil!")
-            else:
-                st.error("❌ Username atau password salah.")
-
-# Fungsi hyperlink
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
-    r_id = part.relate_to(url,
-        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-        is_external=True)
+    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("r:id"), r_id)
+
     new_run = OxmlElement("w:r")
     rPr = OxmlElement("w:rPr")
+
     rFonts = OxmlElement("w:rFonts")
     rFonts.set(qn("w:ascii"), "Arial")
     rFonts.set(qn("w:hAnsi"), "Arial")
     rPr.append(rFonts)
+
     sz = OxmlElement("w:sz")
-    sz.set(qn("w:val"), "24")
+    sz.set(qn("w:val"), "24")  # 12 pt
     rPr.append(sz)
+
     color = OxmlElement("w:color")
     color.set(qn("w:val"), "0000FF")
     rPr.append(color)
+
     underline = OxmlElement("w:u")
     underline.set(qn("w:val"), "single")
     rPr.append(underline)
+
     new_run.append(rPr)
     text_elem = OxmlElement("w:t")
     text_elem.text = text
@@ -61,128 +38,28 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Halaman utama aplikasi
-def show_main_app():
-    st.sidebar.title(f"Halo, {st.session_state.username}")
-    nav = st.sidebar.radio("📂 Menu", ["📄 Generator", "📊 Laporan Aktivitas", "🔒 Logout"])
+# === Langkah 1: Render dari Template ===
+tpl = DocxTemplate("template_with_placeholders.docx")
+context = {
+    "nama_penyelenggara": "PT 3D Tech",
+    "short_link": "[short_link]"  # gunakan token sementara
+}
+tpl.render(context)
 
-    if nav == "📄 Generator":
-        st.title("📄 Generator Surat Massal")
-        uploaded_template = st.file_uploader("📄 Upload Template Word (.docx)", type="docx")
-        uploaded_excel = st.file_uploader("📊 Upload Data Excel (.xlsx)", type="xlsx")
+buffer = BytesIO()
+tpl.save(buffer)
+buffer.seek(0)
 
-        if uploaded_template and uploaded_excel:
-            df = pd.read_excel(uploaded_excel)
-            if len(df.columns) < 2:
-                st.warning("❗ File Excel harus memiliki minimal 2 kolom.")
-                return
+# === Langkah 2: Buka ulang dan ganti [short_link] dengan hyperlink ===
+doc = Document(buffer)
+for p in doc.paragraphs:
+    if "[short_link]" in p.text:
+        parts = p.text.split("[short_link]")
+        p.clear()
+        if parts[0]: p.add_run(parts[0])
+        add_hyperlink(p, "https://komdigi.go.id", "https://komdigi.go.id")
+        if len(parts) > 1: p.add_run(parts[1])
 
-            col_nama = st.selectbox("📌 Kolom Nama Penyelenggara", df.columns)
-            col_link = st.selectbox("🔗 Kolom Link", df.columns)
-            nama_preview = st.selectbox("🔍 Preview Surat untuk", df[col_nama].unique())
-
-            if nama_preview:
-                row = df[df[col_nama] == nama_preview].iloc[0]
-                doc = Document(uploaded_template)
-
-                for p in doc.paragraphs:
-                    for run in p.runs:
-                        run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
-
-                for p in doc.paragraphs:
-                    if "{{short_link}}" in p.text:
-                        parts = p.text.split("{{short_link}}")
-                        p.clear()
-                        if parts[0]: p.add_run(parts[0])
-                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                        if len(parts) > 1: p.add_run(parts[1])
-
-                for p in doc.paragraphs:
-                    for run in p.runs:
-                        run.font.name = "Arial"
-                        run.font.size = Pt(12)
-
-                buffer_preview = BytesIO()
-                doc.save(buffer_preview)
-                buffer_preview.seek(0)
-
-                st.subheader("📄 Preview Surat")
-                st.text_area("Isi Surat", "\n".join([p.text for p in doc.paragraphs]), height=300)
-                st.download_button("⬇️ Download Preview", buffer_preview.getvalue(), file_name=f"preview_{row[col_nama]}.docx")
-
-            if st.button("🚀 Generate Semua Surat"):
-                with st.spinner("Membuat semua surat..."):
-                    output_zip = BytesIO()
-                    failed = []
-                    success = 0
-                    activity_log = []
-
-                    with zipfile.ZipFile(output_zip, "w") as zf:
-                        for idx, row in df.iterrows():
-                            try:
-                                doc = Document(uploaded_template)
-                                for p in doc.paragraphs:
-                                    for run in p.runs:
-                                        run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
-                                for p in doc.paragraphs:
-                                    if "{{short_link}}" in p.text:
-                                        parts = p.text.split("{{short_link}}")
-                                        p.clear()
-                                        if parts[0]: p.add_run(parts[0])
-                                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                                        if len(parts) > 1: p.add_run(parts[1])
-                                for p in doc.paragraphs:
-                                    for run in p.runs:
-                                        run.font.name = "Arial"
-                                        run.font.size = Pt(12)
-
-                                filename = f"{str(row[col_nama]).replace('/', '-')}.docx"
-                                buf = BytesIO()
-                                doc.save(buf)
-                                zf.writestr(filename, buf.getvalue())
-                                success += 1
-                                activity_log.append({
-                                    "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "Nama": row[col_nama],
-                                    "Status": "Berhasil"
-                                })
-                            except Exception as e:
-                                failed.append((idx + 1, row[col_nama], str(e)))
-                                activity_log.append({
-                                    "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "Nama": row[col_nama],
-                                    "Status": "Gagal"
-                                })
-
-                    st.success(f"✅ {success} surat berhasil dibuat.")
-                    if failed:
-                        st.error(f"❌ {len(failed)} gagal.")
-                        st.dataframe(pd.DataFrame(failed, columns=["Baris", "Nama", "Error"]))
-
-                    st.download_button("📥 Download ZIP", output_zip.getvalue(), "surat_massal_output.zip", mime="application/zip")
-
-                    # Simpan log aktivitas
-                    df_log = pd.DataFrame(activity_log)
-                    st.session_state["activity_log"] = df_log
-
-    elif nav == "📊 Laporan Aktivitas":
-        st.title("📊 Laporan Aktivitas")
-        if "activity_log" in st.session_state:
-            st.dataframe(st.session_state["activity_log"])
-            log_file = BytesIO()
-            st.session_state["activity_log"].to_excel(log_file, index=False)
-            log_file.seek(0)
-            st.download_button("📥 Download Laporan", log_file.getvalue(), "laporan_aktivitas.xlsx")
-        else:
-            st.info("Belum ada aktivitas.")
-
-    elif nav == "🔒 Logout":
-        st.session_state.login_state = False
-        st.session_state.page = "login"
-        st.success("🚪 Anda telah logout.")
-
-# Routing
-if st.session_state.page == "login" or not st.session_state.login_state:
-    show_login()
-else:
-    show_main_app()
+# === Simpan Hasil Akhir ===
+doc.save("surat_final_PT_3D_Tech.docx")
+print("✅ Surat berhasil dibuat dengan hyperlink dan header tetap aman.")
