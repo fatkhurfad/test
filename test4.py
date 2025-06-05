@@ -58,26 +58,42 @@ def show_main_app():
             st.download_button("⬇️ Download Preview", preview_buf.getvalue(), file_name=f"preview_{row[col_nama]}.docx")
 
         if st.button("🚀 Generate Semua Surat"):
-            with st.spinner("Membuat surat massal..."):
-                zip_buffer = BytesIO()
-                log = []
-                with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-                    for idx, row in df.iterrows():
-                        try:
-                            context = {
-                                "nama_penyelenggara": row[col_nama],
-                                "short_link": row[col_link]
-                            }
-                            doc = DocxTemplate(template_file)
-                            doc.render(context)
-                            buf = BytesIO()
-                            doc.save(buf)
-                            filename = f"{row[col_nama]}.docx"
-                            zip_file.writestr(filename, buf.getvalue())
-                            log.append({"Nama": row[col_nama], "Status": "Berhasil"})
-                        except Exception as e:
-                            log.append({"Nama": row[col_nama], "Status": f"Gagal: {str(e)}"})
-                zip_buffer.seek(0)
+            output_zip = BytesIO()
+            failed = []
+            success = 0
+
+            with zipfile.ZipFile(output_zip, "w") as zf:
+                for idx, row in df.iterrows():
+                    try:
+                        doc = Document(uploaded_template)
+
+                        for p in doc.paragraphs:
+                            for run in p.runs:
+                                if "{{nama_penyelenggara}}" in run.text:
+                                    run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+
+                        for p in doc.paragraphs:
+                            if "{{short_link}}" in p.text:
+                                parts = p.text.split("{{short_link}}")
+                                p.clear()
+                                if parts[0]: p.add_run(parts[0])
+                                add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                                if len(parts) > 1: p.add_run(parts[1])
+
+                        for p in doc.paragraphs:
+                            for run in p.runs:
+                                run.font.name = "Arial"
+                                run.font.size = Pt(12)
+
+                        custom_filename = file_name_format.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+                        filename = f"{custom_filename.replace('/', '-')}.docx"
+
+                        buffer = BytesIO()
+                        doc.save(buffer)
+                        zf.writestr(filename, buffer.getvalue())
+                        success += 1
+                    except Exception as e:
+                        failed.append((idx + 1, str(row[col_nama]), str(e)))
                 st.success("✅ Surat selesai dibuat.")
                 st.download_button("📦 Download Semua Surat (ZIP)", zip_buffer.getvalue(), file_name="surat_massal.zip")
                 st.dataframe(pd.DataFrame(log))
