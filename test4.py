@@ -30,7 +30,8 @@ if not st.session_state.login_state:
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
                 st.session_state.login_time = time.time()
-                st.experimental_rerun()
+                st.success("✅ Login berhasil!")
+st.stop()
             else:
                 st.error("❌ Username atau password salah.")
                 st.stop()
