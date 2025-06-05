@@ -79,8 +79,21 @@ if uploaded_template and uploaded_excel:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
+            # tampilkan preview isi
             preview_text = "\n".join([p.text for p in doc.paragraphs])
             st.text_area("📝 Isi Surat Preview:", value=preview_text, height=400)
+
+            # tombol download preview
+            preview_buffer = BytesIO()
+            doc.save(preview_buffer)
+            preview_buffer.seek(0)
+
+            st.download_button(
+                label="📄 Download Preview Surat (1 Orang)",
+                data=preview_buffer.getvalue(),
+                file_name=f"preview_{row[col_nama]}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
         if st.button("🔄 Generate Semua Surat"):
             output_zip = BytesIO()
