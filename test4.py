@@ -7,12 +7,11 @@ from docx.oxml.ns import qn
 from io import BytesIO
 import zipfile
 
+st.set_page_config(page_title="Generator Surat Massal", layout="centered")
+st.title("📄 Generator Surat Massal")
 # 🖌️ Load Modern CSS
 with open("style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-st.set_page_config(page_title="Generator Surat Massal", layout="centered")
-st.title("📄 Generator Surat Massal")
 
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
