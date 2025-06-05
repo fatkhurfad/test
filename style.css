@@ -1,0 +1,31 @@
+<style>
+body {
+    background-color: #f7f9fc;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+.stApp {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.05);
+}
+
+.stButton > button {
+    background-color: #00aa5b;
+    color: white;
+    border-radius: 8px;
+    padding: 0.6em 1.2em;
+    border: none;
+    font-weight: bold;
+    transition: 0.3s ease;
+}
+
+.stButton > button:hover {
+    background-color: #00864d;
+}
+</style>
