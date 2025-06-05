@@ -149,6 +149,16 @@ def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
 
+    # Tips cepat di atas
+    st.markdown("### Tips Cepat")
+    st.info(
+        "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
+        "2. Pilih kolom nama dan link sesuai data.\n"
+        "3. Klik **Generate Semua Surat** dan tunggu hingga selesai.\n"
+        "4. Unduh file ZIP berisi surat-surat yang sudah jadi."
+    )
+    st.markdown("---")
+
     generate_log = st.session_state.get("generate_log", [])
 
     total_surat = len(generate_log)
@@ -216,16 +226,6 @@ def page_home():
         st.table(df_aktivitas)
     else:
         st.write("Belum ada aktivitas generate surat.")
-
-    st.markdown("---")
-
-    st.markdown("### Tips Cepat")
-    st.info(
-        "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
-        "2. Pilih kolom nama dan link sesuai data.\n"
-        "3. Klik **Generate Semua Surat** dan tunggu hingga selesai.\n"
-        "4. Unduh file ZIP berisi surat-surat yang sudah jadi."
-    )
 
     st.markdown("---")
 
