@@ -7,23 +7,14 @@ from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import zipfile
-from streamlit_cookies_manager import EncryptedCookieManager
 
-# Setup cookie manager
-cookies = EncryptedCookieManager(prefix="surat_")
-if not cookies.ready():
-    st.stop()
-cookies.load()
-
-if cookies.get("username"):
-    st.session_state.login_state = True
-    st.session_state.username = cookies.get("username")
-
+# Inisialisasi session state
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 if "username" not in st.session_state:
     st.session_state.username = ""
 
+# Fungsi login
 def show_login():
     st.set_page_config(page_title="Login | Generator Surat", layout="centered")
     st.markdown("## 👋 Selamat Datang di Aplikasi Generator Surat Massal")
@@ -39,12 +30,11 @@ def show_login():
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
                 st.session_state.username = username
-                cookies.set("username", username)
-                cookies.save()
                 st.success(f"✅ Login berhasil! Selamat datang, {username} 👋")
             else:
                 st.error("❌ Username atau password salah.")
 
+# Fungsi hyperlink
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
@@ -72,12 +62,12 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Fungsi utama aplikasi
 def show_main_app():
     st.sidebar.markdown(f"Halo, **{st.session_state.username}** 👋")
     if st.sidebar.button("🔓 Logout"):
         st.session_state.login_state = False
-        cookies.delete("username")
-        cookies.save()
+        st.session_state.username = ""
         st.experimental_rerun()
 
     nav = st.sidebar.radio("📂 Menu", ["📄 Generator", "📊 Laporan Aktivitas"])
