@@ -9,6 +9,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 
+# Tambahkan hyperlink aktif
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
@@ -45,6 +46,7 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Halaman login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("🔐 Login")
@@ -59,6 +61,7 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
+# Halaman utama
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
@@ -85,17 +88,17 @@ def show_main_app():
             with zipfile.ZipFile(output_zip, "w") as zf:
                 for _, row in df.iterrows():
                     try:
-                        # 1. Render dulu templatenya
+                        # 1. Render template
                         tpl = DocxTemplate(template_file)
                         tpl.render({
                             "nama_penyelenggara": row[col_nama],
-                            "short_link": "[short_link]"  # placeholder
+                            "short_link": "[short_link]"
                         })
                         temp_buf = BytesIO()
                         tpl.save(temp_buf)
                         temp_buf.seek(0)
 
-                        # 2. Replace [short_link] dengan hyperlink aktif
+                        # 2. Buka kembali dokumen, ganti [short_link] jadi hyperlink aktif
                         doc = Document(temp_buf)
                         for p in doc.paragraphs:
                             if "[short_link]" in p.text:
@@ -104,9 +107,11 @@ def show_main_app():
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
-                                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
+                        # 3. Format seluruh paragraf: font + rata kanan kiri
                         for p in doc.paragraphs:
+                            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                             for run in p.runs:
                                 run.font.name = "Arial"
                                 run.font.size = Pt(12)
@@ -123,7 +128,7 @@ def show_main_app():
             st.download_button("📦 Download ZIP", output_zip.getvalue(), file_name="surat_hyperlink.zip")
             st.dataframe(pd.DataFrame(log))
 
-# Inisialisasi login
+# Inisialisasi
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
