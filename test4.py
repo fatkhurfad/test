@@ -4,6 +4,12 @@ from datetime import datetime
 from docxtpl import DocxTemplate
 from io import BytesIO
 import zipfile
+from docx import Document
+from docx.shared import Pt
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from io import BytesIO
+import zipfile
 
 # Inisialisasi session
 if "login_state" not in st.session_state:
