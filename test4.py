@@ -9,7 +9,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 
-# Tambahkan hyperlink aktif
+# Tambahkan hyperlink aktif ke paragraf
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
@@ -49,7 +49,8 @@ def add_hyperlink(paragraph, text, url):
 # Halaman login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
-    st.title("🔐 Login")
+    st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
+    st.markdown("Silakan login untuk menggunakan aplikasi ini.")
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -57,6 +58,7 @@ def show_login():
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
                 st.session_state.username = username
+                st.session_state.logout_message = False
                 st.experimental_rerun()
             else:
                 st.error("Username atau password salah.")
@@ -65,13 +67,15 @@ def show_login():
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
-        st.session_state.clear()
+        st.session_state.logout_message = True
+        st.session_state.login_state = False
+        st.session_state.username = ""
         st.experimental_rerun()
 
-    st.title("📄 Generator Surat Massal dari Template + Hyperlink Aktif")
+    st.title("📄 Generator Surat Massal + Hyperlink Aktif")
 
     template_file = st.file_uploader("📎 Upload Template Word (.docx)", type="docx")
-    data_file = st.file_uploader("📊 Upload File Excel (.xlsx)", type="xlsx")
+    data_file = st.file_uploader("📊 Upload Excel Data (.xlsx)", type="xlsx")
 
     if template_file and data_file:
         df = pd.read_excel(data_file)
@@ -82,7 +86,7 @@ def show_main_app():
         col_link = st.selectbox("🔗 Kolom Short Link", df.columns)
         nama_preview = st.selectbox("🔍 Pilih Nama untuk Preview", df[col_nama].unique())
 
-        # Tombol preview
+        # Tombol preview surat
         if nama_preview:
             row = df[df[col_nama] == nama_preview].iloc[0]
             tpl = DocxTemplate(template_file)
@@ -120,7 +124,7 @@ def show_main_app():
                 file_name=f"preview_{row[col_nama]}.docx"
             )
 
-        # Tombol generate semua surat
+        # Tombol generate semua
         if st.button("🚀 Generate Semua Surat"):
             output_zip = BytesIO()
             log = []
@@ -165,11 +169,18 @@ def show_main_app():
             st.download_button("📦 Download ZIP Semua Surat", output_zip.getvalue(), file_name="surat_hyperlink.zip")
             st.dataframe(pd.DataFrame(log))
 
-# Inisialisasi sesi
+# Routing berdasarkan status sesi
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
-if st.session_state.login_state:
+if st.session_state.get("logout_message", False):
+    st.set_page_config(page_title="Sampai Jumpa!", layout="centered")
+    st.title("👋 Terima Kasih!")
+    st.markdown("Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**")
+    if st.button("🔐 Kembali ke Halaman Login"):
+        st.session_state.logout_message = False
+        st.experimental_rerun()
+elif st.session_state.login_state:
     show_main_app()
 else:
     show_login()
