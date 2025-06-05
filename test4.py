@@ -140,11 +140,11 @@ def show_main_app():
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
+            render_docx_preview_better(doc)
+
             preview_buf = BytesIO()
             doc.save(preview_buf)
             preview_buf.seek(0)
-
-            render_docx_preview_better(doc)
 
             st.download_button(
                 label=f"⬇️ Download Preview Surat ({row[col_nama]})",
