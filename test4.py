@@ -94,7 +94,7 @@ if st.session_state.login_state:
             st.stop()
 
         doc_check = Document(uploaded_template)
-        placeholders = list(set(re.findall(r"{{(.*?)}}", "\n".join(p.text for p in doc_check.paragraphs)))
+        placeholders = list(set(re.findall(r"{{(.*?)}}", "\n".join(p.text for p in doc_check.paragraphs))))
 
         col_nama = st.selectbox("📌 Pilih kolom Nama Penyelenggara", df.columns)
         col_link = st.selectbox("🔗 Pilih kolom untuk Link", df.columns)
