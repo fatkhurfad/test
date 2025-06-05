@@ -8,6 +8,7 @@ from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
+import matplotlib.pyplot as plt
 
 # Fungsi tambah hyperlink aktif di dokumen Word
 def add_hyperlink(paragraph, text, url):
@@ -144,24 +145,19 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
     return output_zip, log
 
-# Halaman Dashboard dengan statistik dan tabel aktivitas
 def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
 
-    # Ambil log generate surat, atau buat list kosong
     generate_log = st.session_state.get("generate_log", [])
 
-    # Hitung statistik berdasarkan log
     total_surat = len(generate_log)
     berhasil = sum(1 for item in generate_log if item["Status"].startswith("✅"))
     gagal = total_surat - berhasil
 
-    # Template dan data peserta contoh, bisa disimpan di session_state jika ada manajemen
     template_tersedia = st.session_state.get("template_count", 1)
     data_peserta_terakhir = st.session_state.get("last_data_rows", 0)
 
-    # Statistik singkat dalam bentuk tabel
     statistik_data = {
         "Statistik": [
             "Total Surat Dibuat",
@@ -184,7 +180,33 @@ def page_home():
 
     st.markdown("---")
 
-    # Tabel aktivitas terakhir berdasarkan log generate (ambil 5 terakhir)
+    st.markdown("### Statistik Surat Berhasil vs Gagal")
+    fig, ax = plt.subplots()
+    ax.bar(["Berhasil", "Gagal"], [berhasil, gagal], color=["green", "red"])
+    ax.set_ylabel("Jumlah Surat")
+    ax.set_title("Perbandingan Surat Berhasil dan Gagal")
+    st.pyplot(fig)
+
+    st.markdown("---")
+
+    st.markdown("### Persentase Surat")
+    fig2, ax2 = plt.subplots()
+    if total_surat > 0:
+        ax2.pie(
+            [berhasil, gagal],
+            labels=["Berhasil", "Gagal"],
+            autopct="%1.1f%%",
+            colors=["green", "red"],
+            startangle=90,
+            wedgeprops={"edgecolor": "black"},
+        )
+        ax2.axis("equal")
+        st.pyplot(fig2)
+    else:
+        st.write("Belum ada data surat untuk ditampilkan.")
+
+    st.markdown("---")
+
     st.markdown("### Aktivitas Terakhir")
     aktivitas = []
     for item in reversed(generate_log[-5:]):
@@ -197,7 +219,6 @@ def page_home():
 
     st.markdown("---")
 
-    # Tips cepat
     st.markdown("### Tips Cepat")
     st.info(
         "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
@@ -208,11 +229,9 @@ def page_home():
 
     st.markdown("---")
 
-    # Status sistem dan info update
     st.markdown("**Versi Aplikasi:** 1.0.0")
     st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
 
-# Halaman Generate Surat
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
@@ -226,7 +245,6 @@ def page_generate():
         col_name = st.selectbox("Pilih kolom Nama", df.columns)
         col_link = st.selectbox("Pilih kolom Link", df.columns)
 
-        # Preview surat per penerima
         nama_preview = st.selectbox("Pilih Nama untuk Preview", df[col_name].unique())
         if nama_preview:
             row = df[df[col_name] == nama_preview].iloc[0]
@@ -274,7 +292,6 @@ def page_generate():
             )
             st.dataframe(pd.DataFrame(log))
 
-# Halaman Login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
@@ -291,7 +308,6 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
-# Routing utama dan halaman logout
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
@@ -308,7 +324,6 @@ def show_main_app():
     elif page == "Generate Surat":
         page_generate()
 
-# Entry point
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
