@@ -9,7 +9,7 @@ import zipfile
 import re
 import time
 
-st.set_page_config(page_title="Generator Surat Aman", layout="wide")
+st.set_page_config(page_title="Generator Surat Otomatis", layout="wide")
 
 # 🎨 Branding Komdigi
 st.markdown("""
@@ -36,7 +36,7 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-# 🔗 Fungsi untuk menambahkan hyperlink
+# 🔗 Fungsi hyperlink Word
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
@@ -64,25 +64,24 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# 🔐 Login Sederhana
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# 🔐 Login
+if "login_state" not in st.session_state:
+    st.session_state.login_state = False
 
-if not st.session_state.logged_in:
+if not st.session_state.login_state:
     st.title("🔐 Login")
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
-        if submitted:
+        if st.form_submit_button("Login"):
             if username == "admin" and password == "surat123":
-                st.session_state.logged_in = True
-                st.success("✅ Login berhasil! Silakan scroll ke bawah.")
+                st.session_state.login_state = True
+                st.success("✅ Login berhasil! Silakan lanjutkan ke bawah.")
             else:
                 st.error("❌ Username atau password salah.")
 
-# 💼 Lanjutkan jika login berhasil
-if st.session_state.logged_in:
+# 💼 Aplikasi utama
+if st.session_state.login_state:
     st.title("📄 Generator Surat Massal")
 
     uploaded_template = st.file_uploader("📄 Upload Template Word (.docx)", type="docx")
@@ -90,19 +89,15 @@ if st.session_state.logged_in:
 
     if uploaded_template and uploaded_excel:
         df = pd.read_excel(uploaded_excel)
-
         if len(df.columns) < 2:
             st.warning("❗ Excel harus memiliki minimal 2 kolom.")
             st.stop()
 
-        # Cek template dan placeholder
         doc_check = Document(uploaded_template)
-        doc_text = "\n".join([p.text for p in doc_check.paragraphs])
-        placeholders = list(set(re.findall(r"{{(.*?)}}", doc_text)))
+        placeholders = list(set(re.findall(r"{{(.*?)}}", "\n".join(p.text for p in doc_check.paragraphs)))
 
         col_nama = st.selectbox("📌 Pilih kolom Nama Penyelenggara", df.columns)
         col_link = st.selectbox("🔗 Pilih kolom untuk Link", df.columns)
-
         nama_filter = st.selectbox("🔍 Cari Nama Penyelenggara", df[col_nama].unique())
 
         if nama_filter:
@@ -126,19 +121,18 @@ if st.session_state.logged_in:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
-            preview_buffer = BytesIO()
-            doc.save(preview_buffer)
-            preview_buffer.seek(0)
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
 
             st.subheader("📄 Preview Surat")
-            st.text_area("Isi Surat", value="\n".join([p.text for p in doc.paragraphs]), height=300)
-            st.download_button("⬇️ Download Preview", preview_buffer.getvalue(), file_name=f"preview_{row[col_nama]}.docx")
+            st.text_area("Isi Surat", "\n".join(p.text for p in doc.paragraphs), height=300)
+            st.download_button("⬇️ Download Preview", buffer.getvalue(), file_name=f"preview_{row[col_nama]}.docx")
 
         if st.button("🚀 Generate Semua Surat"):
-            with st.spinner("Sedang membuat surat..."):
+            with st.spinner("Sedang memproses..."):
                 output_zip = BytesIO()
-                failed = []
-                success = 0
+                failed, success = [], 0
                 start = time.time()
 
                 with zipfile.ZipFile(output_zip, "w") as zf:
@@ -148,7 +142,6 @@ if st.session_state.logged_in:
                             for p in doc.paragraphs:
                                 for run in p.runs:
                                     run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
-
                             for p in doc.paragraphs:
                                 if "{{short_link}}" in p.text:
                                     parts = p.text.split("{{short_link}}")
@@ -156,23 +149,20 @@ if st.session_state.logged_in:
                                     if parts[0]: p.add_run(parts[0])
                                     add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                     if len(parts) > 1: p.add_run(parts[1])
-
                             for p in doc.paragraphs:
                                 for run in p.runs:
                                     run.font.name = "Arial"
                                     run.font.size = Pt(12)
-
-                            filename = f"{str(row[col_nama]).replace('/', '-')}.docx"
-                            buffer = BytesIO()
-                            doc.save(buffer)
-                            zf.writestr(filename, buffer.getvalue())
+                            fname = f"{str(row[col_nama]).replace('/', '-')}.docx"
+                            buf = BytesIO()
+                            doc.save(buf)
+                            zf.writestr(fname, buf.getvalue())
                             success += 1
                         except Exception as e:
-                            failed.append((idx + 1, str(row[col_nama]), str(e)))
+                            failed.append((idx+1, str(row[col_nama]), str(e)))
 
-                st.success(f"✅ {success} surat berhasil dalam {round(time.time() - start, 2)} detik.")
+                st.success(f"✅ {success} surat selesai dalam {round(time.time() - start, 2)} detik.")
                 if failed:
-                    st.error(f"❌ {len(failed)} gagal dibuat.")
+                    st.error(f"❌ {len(failed)} surat gagal.")
                     st.dataframe(pd.DataFrame(failed, columns=["Baris", "Nama", "Error"]))
-
                 st.download_button("📥 Download ZIP Surat", output_zip.getvalue(), "surat_massal_output.zip", mime="application/zip")
