@@ -63,9 +63,9 @@ def add_hyperlink(paragraph, text, url):
 def show_main_app():
     st.sidebar.markdown(f"Halo, **{st.session_state.username}** 👋")
     if st.sidebar.button("🔓 Logout"):
-        st.session_state.clear()
-        st.success("🚪 Berhasil logout. Silakan login kembali.")
-        st.stop()
+        st.session_state.login_state = False
+        st.session_state.username = ""
+        st.experimental_rerun()
 
     nav = st.sidebar.radio("📂 Menu", ["📄 Generator", "📊 Laporan Aktivitas"])
 
