@@ -132,33 +132,68 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
             status_text.text(f"Memproses surat ke-{idx + 1} dari {total}...")
 
     output_zip.seek(0)
+
+    # Simpan log generate surat ke session_state supaya bisa diakses dashboard
+    if "generate_log" not in st.session_state:
+        st.session_state.generate_log = []
+    st.session_state.generate_log.extend(log)
+
+    # Simpan juga info template & data rows
+    st.session_state.template_count = 1  # misal 1, bisa dikembangkan simpan banyak
+    st.session_state.last_data_rows = total
+
     return output_zip, log
 
-# Halaman Dashboard dengan poin 1-5
+# Halaman Dashboard dengan statistik dan tabel aktivitas
 def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
 
-    # Statistik singkat (ganti dengan data real jika tersedia)
+    # Ambil log generate surat, atau buat list kosong
+    generate_log = st.session_state.get("generate_log", [])
+
+    # Hitung statistik berdasarkan log
+    total_surat = len(generate_log)
+    berhasil = sum(1 for item in generate_log if item["Status"].startswith("✅"))
+    gagal = total_surat - berhasil
+
+    # Template dan data peserta contoh, bisa disimpan di session_state jika ada manajemen
+    template_tersedia = st.session_state.get("template_count", 1)
+    data_peserta_terakhir = st.session_state.get("last_data_rows", 0)
+
+    # Statistik singkat dalam bentuk tabel
+    statistik_data = {
+        "Statistik": [
+            "Total Surat Dibuat",
+            "Surat Berhasil",
+            "Surat Gagal",
+            "Template Tersedia",
+            "Data Peserta Terakhir",
+        ],
+        "Jumlah": [
+            total_surat,
+            berhasil,
+            gagal,
+            template_tersedia,
+            data_peserta_terakhir,
+        ],
+    }
+    df_statistik = pd.DataFrame(statistik_data)
     st.markdown("### Statistik Singkat")
-    st.write("- Total surat dibuat: 120")
-    st.write("- Surat berhasil: 115")
-    st.write("- Surat gagal: 5")
-    st.write("- Template tersedia: 3")
-    st.write("- Data peserta terakhir: 150 baris")
+    st.table(df_statistik)
 
     st.markdown("---")
 
-    # Aktivitas terakhir
+    # Tabel aktivitas terakhir berdasarkan log generate (ambil 5 terakhir)
     st.markdown("### Aktivitas Terakhir")
-    aktivitas = [
-        "Generate surat untuk Andi - 2 jam lalu",
-        "Upload template surat undangan - kemarin",
-        "Generate surat untuk Budi - 3 hari lalu",
-        "Download ZIP surat massal - 5 hari lalu",
-    ]
-    for act in aktivitas:
-        st.write("- " + act)
+    aktivitas = []
+    for item in reversed(generate_log[-5:]):
+        aktivitas.append({"Aktivitas": f"Generate surat untuk {item['Nama']}", "Status": item["Status"]})
+    if aktivitas:
+        df_aktivitas = pd.DataFrame(aktivitas)
+        st.table(df_aktivitas)
+    else:
+        st.write("Belum ada aktivitas generate surat.")
 
     st.markdown("---")
 
