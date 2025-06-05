@@ -7,40 +7,31 @@ from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import zipfile
-from streamlit_cookies_manager import EncryptedCookieManager
 
-# Setup cookie manager
-cookies = EncryptedCookieManager(prefix="surat_")
-if not cookies.ready():
-    st.stop()
-cookies.load()
-
-# Restore login from cookie
-if cookies.get("username"):
-    st.session_state.login_state = True
-    st.session_state.username = cookies.get("username")
-
+# Inisialisasi state
+if "page" not in st.session_state:
+    st.session_state.page = "login"
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 if "username" not in st.session_state:
     st.session_state.username = ""
 
+# Login page
 def show_login():
-    st.title("🔐 Selamat Datang di Aplikasi Generator Surat")
-    st.markdown("Silakan login untuk mulai menggunakan aplikasi.")
+    st.title("🔐 Login")
     with st.form("login_form"):
-        username = st.text_input("👤 Username")
-        password = st.text_input("🔒 Password", type="password")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
                 st.session_state.username = username
-                cookies.set("username", username)
-                cookies.save()
+                st.session_state.page = "main"
                 st.success("✅ Login berhasil!")
             else:
                 st.error("❌ Username atau password salah.")
 
+# Fungsi hyperlink
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(url,
@@ -70,15 +61,10 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+# Halaman utama aplikasi
 def show_main_app():
-    st.sidebar.markdown(f"Halo, **{st.session_state.username}** 👋")
-    if st.sidebar.button("🔓 Logout"):
-        st.session_state.login_state = False
-        cookies.delete("username")
-        cookies.save()
-        st.experimental_rerun()
-
-    nav = st.sidebar.radio("📂 Menu", ["📄 Generator", "📊 Laporan Aktivitas"])
+    st.sidebar.title(f"Halo, {st.session_state.username}")
+    nav = st.sidebar.radio("📂 Menu", ["📄 Generator", "📊 Laporan Aktivitas", "🔒 Logout"])
 
     if nav == "📄 Generator":
         st.title("📄 Generator Surat Massal")
@@ -174,6 +160,8 @@ def show_main_app():
                         st.dataframe(pd.DataFrame(failed, columns=["Baris", "Nama", "Error"]))
 
                     st.download_button("📥 Download ZIP", output_zip.getvalue(), "surat_massal_output.zip", mime="application/zip")
+
+                    # Simpan log aktivitas
                     df_log = pd.DataFrame(activity_log)
                     st.session_state["activity_log"] = df_log
 
@@ -188,7 +176,13 @@ def show_main_app():
         else:
             st.info("Belum ada aktivitas.")
 
-if st.session_state.login_state:
-    show_main_app()
-else:
+    elif nav == "🔒 Logout":
+        st.session_state.login_state = False
+        st.session_state.page = "login"
+        st.success("🚪 Anda telah logout.")
+
+# Routing
+if st.session_state.page == "login" or not st.session_state.login_state:
     show_login()
+else:
+    show_main_app()
