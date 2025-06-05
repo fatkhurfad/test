@@ -63,6 +63,7 @@ def add_hyperlink(paragraph, text, url):
     new_run.append(text_elem)
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
+# login
 
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
@@ -72,12 +73,16 @@ if not st.session_state.login_state:
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
+        submitted = st.form_submit_button("Login")
+
+        if submitted:
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
-                st.experimental_rerun()
+                st.success("✅ Login berhasil! Silakan lanjutkan ke bawah.")
+                st.stop()  # ⬅️ Gantikan rerun dengan ini
             else:
                 st.error("❌ Username atau password salah.")
+
 
 
 # 💼 Aplikasi utama
