@@ -46,7 +46,18 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Fungsi pratinjau lebih mirip Word dengan bold, italic, indentasi
+# Konversi docx ke teks
+def docx_to_text(doc):
+    return "\n\n".join([p.text for p in doc.paragraphs])
+
+# Konversi teks ke docx sederhana
+def text_to_docx(text):
+    doc = Document()
+    for para in text.split("\n\n"):
+        doc.add_paragraph(para)
+    return doc
+
+# Fungsi pratinjau isi docx dalam style sederhana
 def render_docx_preview_better(doc):
     st.subheader("📖 Pratinjau Surat Mirip Word")
 
@@ -140,17 +151,18 @@ def show_main_app():
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
-            preview_buf = BytesIO()
-            doc.save(preview_buf)
-            preview_buf.seek(0)
+            # Preview baca isi docx biasa
+            doc_text = docx_to_text(doc)
 
-            render_docx_preview_better(doc)
+            # Tampilkan editable textarea untuk edit isi surat
+            edited_text = st.text_area("✍️ Edit isi surat di sini:", value=doc_text, height=300)
 
-            st.download_button(
-                label=f"⬇️ Download Preview Surat ({row[col_nama]})",
-                data=preview_buf.getvalue(),
-                file_name=f"preview_{row[col_nama]}.docx"
-            )
+            if st.button("💾 Simpan perubahan dan buat file docx"):
+                new_doc = text_to_docx(edited_text)
+                buf = BytesIO()
+                new_doc.save(buf)
+                buf.seek(0)
+                st.download_button("⬇️ Download Surat Hasil Edit", buf.getvalue(), file_name=f"edited_{row[col_nama]}.docx")
 
         if st.button("🚀 Generate Semua Surat"):
             output_zip = BytesIO()
