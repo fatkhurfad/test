@@ -95,45 +95,44 @@ def show_main_app():
 
         if st.button("🚀 Generate Semua Surat"):
             output_zip = BytesIO()
-            log = []
+            failed = []
+            success = 0
+
             with zipfile.ZipFile(output_zip, "w") as zf:
                 for idx, row in df.iterrows():
                     try:
-                        context = {
-                            "nama_penyelenggara": row[col_nama],
-                            "short_link": "[short_link]"
-                        }
-                        tpl = DocxTemplate(template_file)
-                        tpl.render(context)
+                        doc = Document(uploaded_template)
 
-                        temp_buf = BytesIO()
-                        tpl.save(temp_buf)
-                        temp_buf.seek(0)
-
-                        doc = Document(temp_buf)
                         for p in doc.paragraphs:
-                            if "[short_link]" in p.text:
-                                parts = p.text.split("[short_link]")
+                            for run in p.runs:
+                                if "{{nama_penyelenggara}}" in run.text:
+                                    run.text = run.text.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+
+                        for p in doc.paragraphs:
+                            if "{{short_link}}" in p.text:
+                                parts = p.text.split("{{short_link}}")
                                 p.clear()
                                 if parts[0]: p.add_run(parts[0])
                                 add_hyperlink(p, str(row[col_link]), str(row[col_link]))
                                 if len(parts) > 1: p.add_run(parts[1])
+
                         for p in doc.paragraphs:
                             for run in p.runs:
                                 run.font.name = "Arial"
                                 run.font.size = Pt(12)
 
-                        final_buf = BytesIO()
-                        doc.save(final_buf)
-                        zf.writestr(f"{row[col_nama]}.docx", final_buf.getvalue())
-                        log.append({"Nama": row[col_nama], "Status": "✅ Berhasil"})
-                    except Exception as e:
-                        log.append({"Nama": row[col_nama], "Status": f"❌ Gagal: {str(e)}"})
+                        custom_filename = file_name_format.replace("{{nama_penyelenggara}}", str(row[col_nama]))
+                        filename = f"{custom_filename.replace('/', '-')}.docx"
 
-            st.success("✅ Semua surat berhasil diproses.")
-            output_zip.seek(0)
-            st.download_button("📦 Download Semua Surat (ZIP)", output_zip.getvalue(), file_name="surat_massal.zip")
-            st.dataframe(pd.DataFrame(log))
+                        buffer = BytesIO()
+                        doc.save(buffer)
+                        zf.writestr(filename, buffer.getvalue())
+                        success += 1
+                    except Exception as e:
+                        failed.append((idx + 1, str(row[col_nama]), str(e)))
+                st.success("✅ Surat selesai dibuat.")
+                st.download_button("📦 Download Semua Surat (ZIP)", zip_buffer.getvalue(), file_name="surat_massal.zip")
+                st.dataframe(pd.DataFrame(log))
 
 if st.session_state.login_state:
     show_main_app()
