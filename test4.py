@@ -16,7 +16,7 @@ if "username" not in st.session_state:
 
 def show_login():
     st.set_page_config(page_title="Login | Generator Surat", layout="centered")
-    st.markdown("** Selamat Datang di Aplikasi Generator Surat Massal By TIM PMT")
+    st.markdown("**Selamat Datang di Aplikasi Generator Surat Massal By TIM PMT")
     st.markdown("""
     Aplikasi ini membantu kamu menghasilkan surat massal otomatis dari template Word dan data Excel.  
     Silakan login untuk memulai.
