@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from docxtpl import DocxTemplate
 from docx import Document
 from docx.shared import Pt
 from docx.oxml import OxmlElement
@@ -8,15 +9,9 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 
-# Menambahkan hyperlink aktif ke paragraf
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
-    r_id = part.relate_to(
-        url,
-        reltype="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-        is_external=True
-    )
-
+    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("r:id"), r_id)
 
@@ -50,36 +45,8 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Membuat file .docx untuk setiap baris Excel
-def generate_documents(df, col_nama, col_link):
-    output_zip = BytesIO()
-    log = []
-
-    with zipfile.ZipFile(output_zip, "w") as zf:
-        for _, row in df.iterrows():
-            try:
-                doc = Document()
-                p = doc.add_paragraph()
-                p.add_run(f"Halo {row[col_nama]}, silakan akses tautan berikut: ")
-                add_hyperlink(p, "Klik di sini", str(row[col_link]))
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-
-                for run in p.runs:
-                    run.font.name = "Arial"
-                    run.font.size = Pt(12)
-
-                buffer = BytesIO()
-                doc.save(buffer)
-                zf.writestr(f"{row[col_nama]}.docx", buffer.getvalue())
-                log.append({"Nama": row[col_nama], "Status": "✅ Berhasil"})
-            except Exception as e:
-                log.append({"Nama": row[col_nama], "Status": f"❌ Gagal: {str(e)}"})
-
-    return output_zip.getvalue(), log
-
-# Halaman login
 def show_login():
-    st.set_page_config(page_title="Login | Generator Surat", layout="centered")
+    st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("🔐 Login")
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -92,31 +59,71 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
-# Halaman utama
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
         st.experimental_rerun()
 
-    st.title("📄 Generator Surat Hyperlink")
-    data_file = st.file_uploader("📊 Upload Excel (.xlsx)", type="xlsx")
+    st.title("📄 Generator Surat Massal dari Template + Hyperlink Aktif")
 
-    if data_file:
+    template_file = st.file_uploader("📎 Upload Template Word (.docx)", type="docx")
+    data_file = st.file_uploader("📊 Upload File Excel (.xlsx)", type="xlsx")
+
+    if template_file and data_file:
         df = pd.read_excel(data_file)
         st.write("📋 Pratinjau Data:")
         st.dataframe(df)
 
         col_nama = st.selectbox("🧾 Kolom Nama", df.columns)
-        col_link = st.selectbox("🔗 Kolom Link", df.columns)
+        col_link = st.selectbox("🔗 Kolom Short Link", df.columns)
 
-        if st.button("🚀 Generate & Download"):
-            zip_bytes, log = generate_documents(df, col_nama, col_link)
-            st.success("✅ Dokumen berhasil dibuat!")
-            st.download_button("📦 Download ZIP", zip_bytes, file_name="surat_hyperlink.zip")
+        if st.button("🚀 Generate Semua Surat"):
+            output_zip = BytesIO()
+            log = []
+
+            with zipfile.ZipFile(output_zip, "w") as zf:
+                for _, row in df.iterrows():
+                    try:
+                        # 1. Render dulu templatenya
+                        tpl = DocxTemplate(template_file)
+                        tpl.render({
+                            "nama_penyelenggara": row[col_nama],
+                            "short_link": "[short_link]"  # placeholder
+                        })
+                        temp_buf = BytesIO()
+                        tpl.save(temp_buf)
+                        temp_buf.seek(0)
+
+                        # 2. Replace [short_link] dengan hyperlink aktif
+                        doc = Document(temp_buf)
+                        for p in doc.paragraphs:
+                            if "[short_link]" in p.text:
+                                parts = p.text.split("[short_link]")
+                                p.clear()
+                                if parts[0]: p.add_run(parts[0])
+                                add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                                if len(parts) > 1: p.add_run(parts[1])
+                                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+                        for p in doc.paragraphs:
+                            for run in p.runs:
+                                run.font.name = "Arial"
+                                run.font.size = Pt(12)
+
+                        final_buf = BytesIO()
+                        doc.save(final_buf)
+                        zf.writestr(f"{row[col_nama]}.docx", final_buf.getvalue())
+                        log.append({"Nama": row[col_nama], "Status": "✅ Berhasil"})
+                    except Exception as e:
+                        log.append({"Nama": row[col_nama], "Status": f"❌ Gagal: {str(e)}"})
+
+            st.success("✅ Semua surat berhasil dibuat!")
+            output_zip.seek(0)
+            st.download_button("📦 Download ZIP", output_zip.getvalue(), file_name="surat_hyperlink.zip")
             st.dataframe(pd.DataFrame(log))
 
-# Inisialisasi
+# Inisialisasi login
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
 
