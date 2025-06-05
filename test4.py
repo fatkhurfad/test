@@ -82,6 +82,7 @@ if not st.session_state.login_state:
                 st.stop()  # ⬅️ Gantikan rerun dengan ini
             else:
                 st.error("❌ Username atau password salah.")
+                st.stop()
 
 
 
