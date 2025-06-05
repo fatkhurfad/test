@@ -50,7 +50,6 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Fungsi render preview surat seperti Word (style dasar)
 def render_docx_preview_better(doc):
     st.subheader("📖 Pratinjau Surat Mirip Word")
 
@@ -135,10 +134,48 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip.seek(0)
     return output_zip, log
 
-# Halaman Dashboard
+# Halaman Dashboard dengan poin 1-5
 def page_home():
     st.title("🏠 Dashboard")
-    st.write("Selamat datang di aplikasi Surat Massal PMT versi canggih!")
+    st.markdown(f"Selamat datang, **{st.session_state.username}**!")
+
+    # Statistik singkat (ganti dengan data real jika tersedia)
+    st.markdown("### Statistik Singkat")
+    st.write("- Total surat dibuat: 120")
+    st.write("- Surat berhasil: 115")
+    st.write("- Surat gagal: 5")
+    st.write("- Template tersedia: 3")
+    st.write("- Data peserta terakhir: 150 baris")
+
+    st.markdown("---")
+
+    # Aktivitas terakhir
+    st.markdown("### Aktivitas Terakhir")
+    aktivitas = [
+        "Generate surat untuk Andi - 2 jam lalu",
+        "Upload template surat undangan - kemarin",
+        "Generate surat untuk Budi - 3 hari lalu",
+        "Download ZIP surat massal - 5 hari lalu",
+    ]
+    for act in aktivitas:
+        st.write("- " + act)
+
+    st.markdown("---")
+
+    # Tips cepat
+    st.markdown("### Tips Cepat")
+    st.info(
+        "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
+        "2. Pilih kolom nama dan link sesuai data.\n"
+        "3. Klik **Generate Semua Surat** dan tunggu hingga selesai.\n"
+        "4. Unduh file ZIP berisi surat-surat yang sudah jadi."
+    )
+
+    st.markdown("---")
+
+    # Status sistem dan info update
+    st.markdown("**Versi Aplikasi:** 1.0.0")
+    st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
 
 # Halaman Generate Surat
 def page_generate():
