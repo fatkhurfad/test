@@ -167,7 +167,7 @@ def check_session_timeout():
     if "last_active" in st.session_state:
         if datetime.now() - st.session_state.last_active > SESSION_TIMEOUT:
             st.session_state.clear()
-            st.experimental_rerun()
+            st.rerun()
     st.session_state.last_active = datetime.now()
 
 def page_generate():
@@ -358,7 +358,7 @@ def show_login():
                 st.session_state.login_state = True
                 st.session_state.username = username
                 st.session_state.logout_message = False
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Username atau password salah.")
 
@@ -370,7 +370,7 @@ def show_main_app():
         st.session_state.logout_message = True
         st.session_state.login_state = False
         st.session_state.username = ""
-        st.experimental_rerun()
+        st.rerun()
 
     st.sidebar.title("Menu")
     page = st.sidebar.radio("Navigasi", ["Dashboard", "Generate Surat"])
@@ -389,7 +389,7 @@ if st.session_state.get("logout_message", False):
     st.markdown("Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**")
     if st.button("🔐 Kembali ke Halaman Login"):
         st.session_state.logout_message = False
-        st.experimental_rerun()
+        st.rerun()
 elif st.session_state.login_state:
     show_main_app()
 else:
