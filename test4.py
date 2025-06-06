@@ -61,6 +61,7 @@ LANGUAGES = {
         "app_version": "**Versi Aplikasi:** 1.0.0",
         "no_maintenance": "⚙️ *Tidak ada pemeliharaan sistem saat ini.*",
         "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
+        "login_fail": "Username atau password salah.",
     },
     "en": {
         "welcome": "Welcome to PMT Bulk Letter Application",
@@ -110,6 +111,7 @@ LANGUAGES = {
         "app_version": "**App Version:** 1.0.0",
         "no_maintenance": "⚙️ *No system maintenance currently.*",
         "upload_first": "Please upload the template and Excel data first.",
+        "login_fail": "Wrong username or password.",
     },
 }
 
@@ -381,7 +383,7 @@ def page_home():
     data_peserta_terakhir = st.session_state.get("last_data_rows", 0)
 
     statistik_data = {
-        t("dashboard_title"): [
+        "Statistik": [
             t("total_letters"),
             t("letters_success"),
             t("letters_failed"),
@@ -432,7 +434,7 @@ def page_home():
     st.markdown("### " + t("last_activity"))
     aktivitas = []
     for item in reversed(generate_log[-5:]):
-        aktivitas.append({t("last_activity"): f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]})
+        aktivitas.append({"Aktivitas": f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]})
     if aktivitas:
         df_aktivitas = pd.DataFrame(aktivitas)
         st.table(df_aktivitas)
@@ -459,8 +461,44 @@ def show_login():
                 st.session_state.logout_message = False
                 st.rerun()
             else:
-                st.error(t("login") + ": " + "Username atau password salah.")
+                st.error(t("login_fail"))
 
 def show_main_app():
     check_session_timeout()
-   
+    st.sidebar.success(f"{t('welcome')}, {st.session_state.username}")
+
+    if st.sidebar.button(t("logout_button")):
+        st.session_state.logout_message = True
+        st.session_state.login_state = False
+        st.session_state.username = ""
+        st.rerun()
+
+    st.sidebar.title(t("choose_language"))
+    lang = st.sidebar.selectbox("", ["id", "en"], index=0 if st.session_state.get("lang", "id")=="id" else 1, format_func=lambda x: "Indonesia" if x=="id" else "English")
+    st.session_state.lang = lang
+
+    st.sidebar.title("Menu")
+    page = st.sidebar.radio("Navigasi", [t("dashboard_title"), t("generate_title")])
+
+    if page == t("dashboard_title"):
+        page_home()
+    else:
+        page_generate()
+
+if "login_state" not in st.session_state:
+    st.session_state.login_state = False
+
+if "lang" not in st.session_state:
+    st.session_state.lang = "id"
+
+if st.session_state.get("logout_message", False):
+    st.set_page_config(page_title=t("logout_msg"), layout="centered")
+    st.title(t("logout_msg"))
+    st.markdown(t("logout_submsg"))
+    if st.button(t("back_login")):
+        st.session_state.logout_message = False
+        st.rerun()
+elif st.session_state.login_state:
+    show_main_app()
+else:
+    show_login()
