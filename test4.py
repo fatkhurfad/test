@@ -365,6 +365,7 @@ def show_login():
 def show_main_app():
     check_session_timeout()
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
+
     if st.sidebar.button("Logout"):
         st.session_state.logout_message = True
         st.session_state.login_state = False
