@@ -158,54 +158,36 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-def render_docx_preview_visual(doc):
-    st.subheader(t("preview_letter"))
+def render_interactive_preview(doc, highlight_words):
     style = """
     <style>
-        .docx-preview {
-            background: #fff;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            text-align: justify;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .docx-preview p {
-            margin-bottom: 1em;
-        }
-        .docx-preview a {
-            color: #1a0dab;
-            text-decoration: underline;
-        }
-        .docx-preview strong {
-            font-weight: bold;
-        }
-        .docx-preview em {
-            font-style: italic;
-        }
+    .preview-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+        text-align: justify;
+        user-select: text;
+    }
+    .highlight {
+        background-color: yellow;
+        font-weight: bold;
+    }
     </style>
     """
-    html = '<div class="docx-preview">'
+    html = '<div class="preview-container">'
     for p in doc.paragraphs:
-        if not p.text.strip():
-            continue
-        run_html = ""
-        for run in p.runs:
-            text = run.text.replace("\n", "<br>")
-            if run.bold and run.italic:
-                run_html += f"<strong><em>{text}</em></strong>"
-            elif run.bold:
-                run_html += f"<strong>{text}</strong>"
-            elif run.italic:
-                run_html += f"<em>{text}</em>"
-            else:
-                run_html += text
-        html += f"<p>{run_html}</p>"
-    html += "</div>"
+        text = p.text
+        for w in highlight_words:
+            if w:
+                text = text.replace(w, f'<span class="highlight">{w}</span>')
+                text = text.replace(w.capitalize(), f'<span class="highlight">{w.capitalize()}</span>')
+                text = text.replace(w.upper(), f'<span class="highlight">{w.upper()}</span>')
+        html += f'<p>{text}</p>'
+    html += '</div>'
     st.markdown(style + html, unsafe_allow_html=True)
 
 def generate_letters_with_progress(template_file, df, col_name, col_link):
@@ -321,26 +303,9 @@ def page_generate():
             temp_buf.seek(0)
 
             doc = Document(temp_buf)
-            for p in doc.paragraphs:
-                if "[short_link]" in p.text:
-                    parts = p.text.split("[short_link]")
-                    p.clear()
-                    if parts[0]:
-                        run_before = p.add_run(parts[0])
-                        run_before.font.name = "Arial"
-                        run_before.font.size = Pt(12)
-                    add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                    if len(parts) > 1 and parts[1]:
-                        run_after = p.add_run(parts[1])
-                        run_after.font.name = "Arial"
-                        run_after.font.size = Pt(12)
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            for p in doc.paragraphs:
-                for run in p.runs:
-                    run.font.name = "Arial"
-                    run.font.size = Pt(12)
 
-            render_docx_preview_visual(doc)
+            # Preview interaktif dengan highlight
+            render_interactive_preview(doc, [str(row[col_name]), str(row[col_link])])
 
             preview_buf = BytesIO()
             doc.save(preview_buf)
@@ -474,7 +439,12 @@ def show_main_app():
         st.rerun()
 
     st.sidebar.title(t("choose_language"))
-    lang = st.sidebar.selectbox("", ["id", "en"], index=0 if st.session_state.get("lang", "id")=="id" else 1, format_func=lambda x: "Indonesia" if x=="id" else "English")
+    lang = st.sidebar.selectbox(
+        "",
+        ["id", "en"],
+        index=0 if st.session_state.get("lang", "id") == "id" else 1,
+        format_func=lambda x: "Indonesia" if x == "id" else "English",
+    )
     st.session_state.lang = lang
 
     st.sidebar.title("Menu")
