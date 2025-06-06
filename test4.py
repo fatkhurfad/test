@@ -9,8 +9,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import zipfile
 import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
 
-# Fungsi tambah hyperlink aktif di dokumen Word
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(
@@ -51,31 +51,55 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-def render_docx_preview_better(doc):
-    st.subheader("📖 Pratinjau Surat (Format Mirip Word)")
-    html = (
-        "<div style='background:#fff; padding:30px; border:1px solid #ddd; "
-        "border-radius:8px; font-family:Arial, sans-serif; font-size:14px; "
-        "line-height:1.6; text-align:justify;'>"
-    )
+def render_docx_preview_visual(doc):
+    st.subheader("📖 Pratinjau Surat (Visual dan Rapi)")
+    style = """
+    <style>
+        .docx-preview {
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            text-align: justify;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .docx-preview p {
+            margin-bottom: 1em;
+        }
+        .docx-preview a {
+            color: #1a0dab;
+            text-decoration: underline;
+        }
+        .docx-preview strong {
+            font-weight: bold;
+        }
+        .docx-preview em {
+            font-style: italic;
+        }
+    </style>
+    """
+    html = '<div class="docx-preview">'
     for p in doc.paragraphs:
         if not p.text.strip():
             continue
-        runs_html = ""
+        run_html = ""
         for run in p.runs:
             text = run.text.replace("\n", "<br>")
-            style = ""
-            if run.bold:
-                style += "font-weight:bold;"
-            if run.italic:
-                style += "font-style:italic;"
-            runs_html += f"<span style='{style}'>{text}</span>"
-        indent = ""
-        if p.paragraph_format.first_line_indent:
-            indent = f"padding-left: {int(p.paragraph_format.first_line_indent.pt)}pt;"
-        html += f"<p style='{indent} margin-bottom:1em;'>{runs_html}</p>"
+            if run.bold and run.italic:
+                run_html += f"<strong><em>{text}</em></strong>"
+            elif run.bold:
+                run_html += f"<strong>{text}</strong>"
+            elif run.italic:
+                run_html += f"<em>{text}</em>"
+            else:
+                run_html += text
+        html += f"<p>{run_html}</p>"
     html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(style + html, unsafe_allow_html=True)
 
 def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip = BytesIO()
@@ -137,34 +161,76 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
     return output_zip, log
 
+SESSION_TIMEOUT = timedelta(minutes=15)
+
+def check_session_timeout():
+    if "last_active" in st.session_state:
+        if datetime.now() - st.session_state.last_active > SESSION_TIMEOUT:
+            st.session_state.clear()
+            st.experimental_rerun()
+    st.session_state.last_active = datetime.now()
+
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
-    template_file = st.file_uploader("Upload Template Word (.docx)", type="docx")
-    data_file = st.file_uploader("Upload Data Excel (.xlsx)", type="xlsx")
+    col1, col2 = st.columns([1, 2])
 
-    if template_file and data_file:
-        df = pd.read_excel(data_file)
-        st.dataframe(df)
+    with col1:
+        template_file = st.file_uploader("Upload Template Word (.docx) — Drag & Drop atau klik", type="docx", accept_multiple_files=False)
+        data_file = st.file_uploader("Upload Data Excel (.xlsx) — Drag & Drop atau klik", type="xlsx", accept_multiple_files=False)
 
-        col_name = st.selectbox("Pilih kolom Nama", df.columns)
-        col_link = st.selectbox("Pilih kolom Link", df.columns)
+        if template_file and data_file:
+            try:
+                df = pd.read_excel(data_file)
+                st.success(f"Data Excel berhasil diupload dengan {len(df)} baris")
+                st.dataframe(df)
 
-        tab_preview, tab_generate = st.tabs(["Preview Surat", "Generate Surat"])
+                col_name = st.selectbox("Pilih kolom Nama", df.columns)
+                col_link = st.selectbox("Pilih kolom Link", df.columns)
 
-        with tab_preview:
-            nama_preview = st.selectbox("Pilih Nama untuk Preview", df[col_name].unique())
-            if nama_preview:
-                row = df[df[col_name] == nama_preview].iloc[0]
+                search_name = st.text_input("Cari Nama (ketik untuk filter)", "")
+                filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
+                selected_name = st.selectbox("Pilih Nama untuk Preview", filtered_names)
+
+                st.session_state.df = df
+                st.session_state.col_name = col_name
+                st.session_state.col_link = col_link
+                st.session_state.selected_name = selected_name
+                st.session_state.template_file = template_file
+
+            except Exception as e:
+                st.error(f"Gagal membaca file Excel: {e}")
+
+    with col2:
+        if (
+            "df" in st.session_state and
+            "col_name" in st.session_state and
+            "col_link" in st.session_state and
+            "selected_name" in st.session_state and
+            "template_file" in st.session_state
+        ):
+            df = st.session_state.df
+            col_name = st.session_state.col_name
+            col_link = st.session_state.col_link
+            selected_name = st.session_state.selected_name
+            template_file = st.session_state.template_file
+
+            if 'show_preview' not in st.session_state:
+                st.session_state.show_preview = True
+
+            toggle = st.button("Sembunyikan Preview" if st.session_state.show_preview else "Tampilkan Preview")
+            if toggle:
+                st.session_state.show_preview = not st.session_state.show_preview
+
+            if st.session_state.show_preview and selected_name:
+                row = df[df[col_name] == selected_name].iloc[0]
                 tpl = DocxTemplate(template_file)
-
                 tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
                 temp_buf = BytesIO()
                 tpl.save(temp_buf)
                 temp_buf.seek(0)
 
                 doc = Document(temp_buf)
-
                 for p in doc.paragraphs:
                     if "[short_link]" in p.text:
                         parts = p.text.split("[short_link]")
@@ -179,13 +245,12 @@ def page_generate():
                             run_after.font.name = "Arial"
                             run_after.font.size = Pt(12)
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
                 for p in doc.paragraphs:
                     for run in p.runs:
                         run.font.name = "Arial"
                         run.font.size = Pt(12)
 
-                render_docx_preview_better(doc)
+                render_docx_preview_visual(doc)
 
                 preview_buf = BytesIO()
                 doc.save(preview_buf)
@@ -197,27 +262,16 @@ def page_generate():
                     file_name=f"preview_{row[col_name]}.docx",
                 )
 
-        with tab_generate:
-            with st.expander("Tips Cepat"):
-                st.write(
-                    """
-                    1. Upload template dan data Excel di halaman Generate Surat.
-                    2. Pilih kolom nama dan link sesuai data.
-                    3. Klik Generate Semua Surat dan tunggu hingga selesai.
-                    4. Unduh file ZIP berisi surat-surat yang sudah jadi.
-                    """
-                )
             if st.button("Generate Semua Surat"):
                 with st.spinner("Sedang memproses surat..."):
-                    zip_file, log = generate_letters_with_progress(
-                        template_file, df, col_name, col_link
-                    )
+                    zip_file, log = generate_letters_with_progress(template_file, df, col_name, col_link)
                 st.success("✅ Proses generate selesai!")
-                st.download_button(
-                    "Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip"
-                )
+                st.toast("Surat berhasil digenerate!", icon="✅")
+                st.download_button("Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip")
                 with st.expander("Lihat Log Generate"):
                     st.dataframe(pd.DataFrame(log))
+        else:
+            st.info("Silakan upload template dan data Excel serta pilih kolom dan nama untuk preview.")
 
 def page_home():
     st.title("🏠 Dashboard")
@@ -319,17 +373,18 @@ def show_login():
                 st.session_state.login_state = True
                 st.session_state.username = username
                 st.session_state.logout_message = False
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("Username atau password salah.")
 
 def show_main_app():
+    check_session_timeout()
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logout_message = True
         st.session_state.login_state = False
         st.session_state.username = ""
-        st.rerun()
+        st.experimental_rerun()
 
     st.sidebar.title("Menu")
     page = st.sidebar.radio("Navigasi", ["Dashboard", "Generate Surat"])
@@ -348,7 +403,7 @@ if st.session_state.get("logout_message", False):
     st.markdown("Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**")
     if st.button("🔐 Kembali ke Halaman Login"):
         st.session_state.logout_message = False
-        st.rerun()
+        st.experimental_rerun()
 elif st.session_state.login_state:
     show_main_app()
 else:
