@@ -11,6 +11,111 @@ import zipfile
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
+# Kamus Bahasa
+LANGUAGES = {
+    "id": {
+        "welcome": "Selamat Datang di Aplikasi Surat Massal PMT",
+        "login": "Silakan login untuk menggunakan aplikasi ini.",
+        "username": "Username",
+        "password": "Password",
+        "login_button": "Login",
+        "logout_button": "Logout",
+        "dashboard_title": "Dashboard",
+        "generate_title": "Generate Surat Massal",
+        "choose_language": "Pilih Bahasa / Choose Language",
+        "upload_template": "Upload Template Word (.docx) — Drag & Drop atau klik",
+        "upload_data": "Upload Data Excel (.xlsx) — Drag & Drop atau klik",
+        "select_name_col": "Pilih kolom Nama",
+        "select_link_col": "Pilih kolom Link",
+        "search_name": "Cari Nama (ketik untuk filter)",
+        "select_name_preview": "Pilih Nama untuk Preview",
+        "hide_preview": "Sembunyikan Preview",
+        "show_preview": "Tampilkan Preview",
+        "preview_letter": "📖 Pratinjau Surat (Visual dan Rapi)",
+        "download_preview": "⬇️ Download Preview Surat",
+        "generate_all": "Generate Semua Surat",
+        "processing_letters": "Sedang memproses surat...",
+        "generate_done": "✅ Proses generate selesai!",
+        "download_all_zip": "Download Semua Surat (ZIP)",
+        "view_log": "Lihat Log Generate",
+        "logout_msg": "👋 Terima Kasih!",
+        "logout_submsg": "Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**",
+        "back_login": "🔐 Kembali ke Halaman Login",
+        "total_letters": "Total Surat Dibuat",
+        "letters_success": "Surat Berhasil",
+        "letters_failed": "Surat Gagal",
+        "templates_available": "Template Tersedia",
+        "last_data_rows": "Data Peserta Terakhir",
+        "letters_success_vs_failed": "Statistik Surat Berhasil vs Gagal",
+        "percentage_letters": "Persentase Surat",
+        "last_activity": "Aktivitas Terakhir",
+        "no_data": "Belum ada data surat untuk ditampilkan.",
+        "no_activity": "Belum ada aktivitas generate surat.",
+        "tips": "Tips Cepat",
+        "tips_content": (
+            "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
+            "2. Pilih kolom nama dan link sesuai data.\n"
+            "3. Klik **Generate Semua Surat** dan tunggu hingga selesai.\n"
+            "4. Unduh file ZIP berisi surat-surat yang sudah jadi."
+        ),
+        "app_version": "**Versi Aplikasi:** 1.0.0",
+        "no_maintenance": "⚙️ *Tidak ada pemeliharaan sistem saat ini.*",
+        "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
+    },
+    "en": {
+        "welcome": "Welcome to PMT Bulk Letter Application",
+        "login": "Please login to use this application.",
+        "username": "Username",
+        "password": "Password",
+        "login_button": "Login",
+        "logout_button": "Logout",
+        "dashboard_title": "Dashboard",
+        "generate_title": "Generate Bulk Letters",
+        "choose_language": "Select Language / Pilih Bahasa",
+        "upload_template": "Upload Word Template (.docx) — Drag & Drop or click",
+        "upload_data": "Upload Excel Data (.xlsx) — Drag & Drop or click",
+        "select_name_col": "Select Name Column",
+        "select_link_col": "Select Link Column",
+        "search_name": "Search Name (type to filter)",
+        "select_name_preview": "Select Name for Preview",
+        "hide_preview": "Hide Preview",
+        "show_preview": "Show Preview",
+        "preview_letter": "📖 Letter Preview (Visual and Neat)",
+        "download_preview": "⬇️ Download Letter Preview",
+        "generate_all": "Generate All Letters",
+        "processing_letters": "Processing letters...",
+        "generate_done": "✅ Generation process complete!",
+        "download_all_zip": "Download All Letters (ZIP)",
+        "view_log": "View Generation Log",
+        "logout_msg": "👋 Thank You!",
+        "logout_submsg": "Thank you for using this application.\n\n**See you!**",
+        "back_login": "🔐 Back to Login Page",
+        "total_letters": "Total Letters Created",
+        "letters_success": "Successful Letters",
+        "letters_failed": "Failed Letters",
+        "templates_available": "Templates Available",
+        "last_data_rows": "Last Data Rows",
+        "letters_success_vs_failed": "Successful vs Failed Letters Statistics",
+        "percentage_letters": "Letters Percentage",
+        "last_activity": "Recent Activity",
+        "no_data": "No letter data to display.",
+        "no_activity": "No letter generation activity yet.",
+        "tips": "Quick Tips",
+        "tips_content": (
+            "1. Upload template and Excel data in the **Generate Letters** page.\n"
+            "2. Select name and link columns as per your data.\n"
+            "3. Click **Generate All Letters** and wait until completion.\n"
+            "4. Download the ZIP file containing generated letters."
+        ),
+        "app_version": "**App Version:** 1.0.0",
+        "no_maintenance": "⚙️ *No system maintenance currently.*",
+        "upload_first": "Please upload the template and Excel data first.",
+    },
+}
+
+def t(key):
+    return LANGUAGES.get(st.session_state.lang, LANGUAGES["id"]).get(key, key)
+
 def add_hyperlink(paragraph, text, url):
     part = paragraph.part
     r_id = part.relate_to(
@@ -52,7 +157,7 @@ def add_hyperlink(paragraph, text, url):
     paragraph._p.append(hyperlink)
 
 def render_docx_preview_visual(doc):
-    st.subheader("📖 Pratinjau Surat (Visual dan Rapi)")
+    st.subheader(t("preview_letter"))
     style = """
     <style>
         .docx-preview {
@@ -148,7 +253,7 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
             progress = int((idx + 1) / total * 100)
             progress_bar.progress(progress)
-            status_text.text(f"Memproses surat ke-{idx + 1} dari {total}...")
+            status_text.text(f"{t('processing_letters')} {idx + 1} / {total}")
 
     output_zip.seek(0)
 
@@ -171,23 +276,23 @@ def check_session_timeout():
     st.session_state.last_active = datetime.now()
 
 def page_generate():
-    st.title("🚀 Generate Surat Massal")
+    st.title(t("generate_title"))
 
-    template_file = st.file_uploader("Upload Template Word (.docx) — Drag & Drop atau klik", type="docx", accept_multiple_files=False)
-    data_file = st.file_uploader("Upload Data Excel (.xlsx) — Drag & Drop atau klik", type="xlsx", accept_multiple_files=False)
+    template_file = st.file_uploader(t("upload_template"), type="docx", accept_multiple_files=False)
+    data_file = st.file_uploader(t("upload_data"), type="xlsx", accept_multiple_files=False)
 
     if template_file and data_file:
         try:
             df = pd.read_excel(data_file)
-            st.success(f"Data Excel berhasil diupload dengan {len(df)} baris")
+            st.success(f"{len(df)} rows loaded successfully")
             st.dataframe(df)
 
-            col_name = st.selectbox("Pilih kolom Nama", df.columns)
-            col_link = st.selectbox("Pilih kolom Link", df.columns)
+            col_name = st.selectbox(t("select_name_col"), df.columns)
+            col_link = st.selectbox(t("select_link_col"), df.columns)
 
-            search_name = st.text_input("Cari Nama (ketik untuk filter)", "")
+            search_name = st.text_input(t("search_name"), "")
             filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
-            selected_name = st.selectbox("Pilih Nama untuk Preview", filtered_names)
+            selected_name = st.selectbox(t("select_name_preview"), filtered_names)
 
             st.session_state.df = df
             st.session_state.col_name = col_name
@@ -196,12 +301,12 @@ def page_generate():
             st.session_state.template_file = template_file
 
         except Exception as e:
-            st.error(f"Gagal membaca file Excel: {e}")
+            st.error(f"Failed to read Excel file: {e}")
 
         if 'show_preview' not in st.session_state:
             st.session_state.show_preview = True
 
-        toggle = st.button("Sembunyikan Preview" if st.session_state.show_preview else "Tampilkan Preview")
+        toggle = st.button(t("hide_preview") if st.session_state.show_preview else t("show_preview"))
         if toggle:
             st.session_state.show_preview = not st.session_state.show_preview
 
@@ -240,36 +345,30 @@ def page_generate():
             preview_buf.seek(0)
 
             st.download_button(
-                label=f"⬇️ Download Preview Surat ({row[col_name]})",
+                label=f"{t('download_preview')} ({row[col_name]})",
                 data=preview_buf.getvalue(),
                 file_name=f"preview_{row[col_name]}.docx",
             )
 
-        if st.button("Generate Semua Surat"):
-            with st.spinner("Sedang memproses surat..."):
+        if st.button(t("generate_all")):
+            with st.spinner(t("processing_letters")):
                 zip_file, log = generate_letters_with_progress(template_file, df, col_name, col_link)
-            st.success("✅ Proses generate selesai!")
-            st.toast("Surat berhasil digenerate!", icon="✅")
-            st.download_button("Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip")
-            with st.expander("Lihat Log Generate"):
+            st.success(t("generate_done"))
+            st.toast(t("generate_done"), icon="✅")
+            st.download_button(t("download_all_zip"), zip_file.getvalue(), file_name="surat_massal.zip")
+            with st.expander(t("view_log")):
                 st.dataframe(pd.DataFrame(log))
 
     else:
-        st.info("Silakan upload template dan data Excel terlebih dahulu.")
+        st.info(t("upload_first"))
 
 def page_home():
-    st.title("🏠 Dashboard")
-    st.markdown(f"Selamat datang, **{st.session_state.username}**!")
+    st.title(t("dashboard_title"))
+    st.markdown(f"{t('welcome')}, **{st.session_state.username}**!")
 
-    with st.expander("Tips Cepat", expanded=True):
-        st.write(
-            """
-            1. Upload template dan data Excel di halaman **Generate Surat**.
-            2. Pilih kolom nama dan link sesuai data.
-            3. Klik **Generate Semua Surat** dan tunggu hingga selesai.
-            4. Unduh file ZIP berisi surat-surat yang sudah jadi.
-            """
-        )
+    with st.expander(t("tips"), expanded=True):
+        st.write(t("tips_content"))
+
     st.markdown("---")
 
     generate_log = st.session_state.get("generate_log", [])
@@ -282,12 +381,12 @@ def page_home():
     data_peserta_terakhir = st.session_state.get("last_data_rows", 0)
 
     statistik_data = {
-        "Statistik": [
-            "Total Surat Dibuat",
-            "Surat Berhasil",
-            "Surat Gagal",
-            "Template Tersedia",
-            "Data Peserta Terakhir",
+        t("dashboard_title"): [
+            t("total_letters"),
+            t("letters_success"),
+            t("letters_failed"),
+            t("templates_available"),
+            t("last_data_rows"),
         ],
         "Jumlah": [
             total_surat,
@@ -298,26 +397,26 @@ def page_home():
         ],
     }
     df_statistik = pd.DataFrame(statistik_data)
-    st.markdown("### Statistik Singkat")
+    st.markdown("### " + t("dashboard_title"))
     st.table(df_statistik)
 
     st.markdown("---")
 
-    st.markdown("### Statistik Surat Berhasil vs Gagal")
+    st.markdown("### " + t("letters_success_vs_failed"))
     fig, ax = plt.subplots()
-    ax.bar(["Berhasil", "Gagal"], [berhasil, gagal], color=["green", "red"])
-    ax.set_ylabel("Jumlah Surat")
-    ax.set_title("Perbandingan Surat Berhasil dan Gagal")
+    ax.bar([t("letters_success"), t("letters_failed")], [berhasil, gagal], color=["green", "red"])
+    ax.set_ylabel(t("total_letters"))
+    ax.set_title(t("letters_success_vs_failed"))
     st.pyplot(fig)
 
     st.markdown("---")
 
-    st.markdown("### Persentase Surat")
+    st.markdown("### " + t("percentage_letters"))
     fig2, ax2 = plt.subplots()
     if total_surat > 0:
         ax2.pie(
             [berhasil, gagal],
-            labels=["Berhasil", "Gagal"],
+            labels=[t("letters_success"), t("letters_failed")],
             autopct="%1.1f%%",
             colors=["green", "red"],
             startangle=90,
@@ -326,33 +425,33 @@ def page_home():
         ax2.axis("equal")
         st.pyplot(fig2)
     else:
-        st.write("Belum ada data surat untuk ditampilkan.")
+        st.write(t("no_data"))
 
     st.markdown("---")
 
-    st.markdown("### Aktivitas Terakhir")
+    st.markdown("### " + t("last_activity"))
     aktivitas = []
     for item in reversed(generate_log[-5:]):
-        aktivitas.append({"Aktivitas": f"Generate surat untuk {item['Nama']}", "Status": item["Status"]})
+        aktivitas.append({t("last_activity"): f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]})
     if aktivitas:
         df_aktivitas = pd.DataFrame(aktivitas)
         st.table(df_aktivitas)
     else:
-        st.write("Belum ada aktivitas generate surat.")
+        st.write(t("no_activity"))
 
     st.markdown("---")
 
-    st.markdown("**Versi Aplikasi:** 1.0.0")
-    st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
+    st.markdown(t("app_version"))
+    st.markdown(t("no_maintenance"))
 
 def show_login():
     st.set_page_config(page_title="Login | Surat Massal PMT", layout="centered")
-    st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
-    st.markdown("Silakan login untuk menggunakan aplikasi ini.")
+    st.title(t("welcome"))
+    st.markdown(t("login"))
     with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
+        username = st.text_input(t("username"))
+        password = st.text_input(t("password"), type="password")
+        submitted = st.form_submit_button(t("login_button"))
         if submitted:
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
@@ -360,37 +459,8 @@ def show_login():
                 st.session_state.logout_message = False
                 st.rerun()
             else:
-                st.error("Username atau password salah.")
+                st.error(t("login") + ": " + "Username atau password salah.")
 
 def show_main_app():
     check_session_timeout()
-    st.sidebar.success(f"Login sebagai: {st.session_state.username}")
-
-    if st.sidebar.button("Logout"):
-        st.session_state.logout_message = True
-        st.session_state.login_state = False
-        st.session_state.username = ""
-        st.rerun()
-
-    st.sidebar.title("Menu")
-    page = st.sidebar.radio("Navigasi", ["Dashboard", "Generate Surat"])
-
-    if page == "Dashboard":
-        page_home()
-    elif page == "Generate Surat":
-        page_generate()
-
-if "login_state" not in st.session_state:
-    st.session_state.login_state = False
-
-if st.session_state.get("logout_message", False):
-    st.set_page_config(page_title="Sampai Jumpa!", layout="centered")
-    st.title("👋 Terima Kasih!")
-    st.markdown("Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**")
-    if st.button("🔐 Kembali ke Halaman Login"):
-        st.session_state.logout_message = False
-        st.rerun()
-elif st.session_state.login_state:
-    show_main_app()
-else:
-    show_login()
+   
