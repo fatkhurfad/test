@@ -346,7 +346,7 @@ def page_home():
     st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
 
 def show_login():
-    st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
+    st.set_page_config(page_title="Login | Surat Massal PMT", layout="centered")
     st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
     st.markdown("Silakan login untuk menggunakan aplikasi ini.")
     with st.form("login_form"):
