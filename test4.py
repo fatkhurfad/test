@@ -10,8 +10,9 @@ from io import BytesIO
 import zipfile
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import re
 
-# Kamus Bahasa
+# Bahasa
 LANGUAGES = {
     "id": {
         "welcome": "Selamat Datang di Aplikasi Surat Massal PMT",
@@ -41,6 +42,8 @@ LANGUAGES = {
         "logout_msg": "👋 Terima Kasih!",
         "logout_submsg": "Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**",
         "back_login": "🔐 Kembali ke Halaman Login",
+        "login_fail": "Username atau password salah.",
+        "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
         "total_letters": "Total Surat Dibuat",
         "letters_success": "Surat Berhasil",
         "letters_failed": "Surat Gagal",
@@ -60,8 +63,6 @@ LANGUAGES = {
         ),
         "app_version": "**Versi Aplikasi:** 1.0.0",
         "no_maintenance": "⚙️ *Tidak ada pemeliharaan sistem saat ini.*",
-        "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
-        "login_fail": "Username atau password salah.",
     },
     "en": {
         "welcome": "Welcome to PMT Bulk Letter Application",
@@ -91,6 +92,8 @@ LANGUAGES = {
         "logout_msg": "👋 Thank You!",
         "logout_submsg": "Thank you for using this application.\n\n**See you!**",
         "back_login": "🔐 Back to Login Page",
+        "login_fail": "Wrong username or password.",
+        "upload_first": "Please upload the template and Excel data first.",
         "total_letters": "Total Letters Created",
         "letters_success": "Successful Letters",
         "letters_failed": "Failed Letters",
@@ -110,8 +113,6 @@ LANGUAGES = {
         ),
         "app_version": "**App Version:** 1.0.0",
         "no_maintenance": "⚙️ *No system maintenance currently.*",
-        "upload_first": "Please upload the template and Excel data first.",
-        "login_fail": "Wrong username or password.",
     },
 }
 
@@ -183,9 +184,8 @@ def render_interactive_preview(doc, highlight_words):
         text = p.text
         for w in highlight_words:
             if w:
-                text = text.replace(w, f'<span class="highlight">{w}</span>')
-                text = text.replace(w.capitalize(), f'<span class="highlight">{w.capitalize()}</span>')
-                text = text.replace(w.upper(), f'<span class="highlight">{w.upper()}</span>')
+                regex = re.compile(re.escape(w), re.IGNORECASE)
+                text = regex.sub(lambda m: f'<span class="highlight">{m.group(0)}</span>', text)
         html += f'<p>{text}</p>'
     html += '</div>'
     st.markdown(style + html, unsafe_allow_html=True)
@@ -202,12 +202,13 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
         for idx, row in df.iterrows():
             try:
                 tpl = DocxTemplate(template_file)
-                tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+                tpl.render({"nama_penyelenggara": row[col_name], "short_link": str(row[col_link])})
                 temp_buf = BytesIO()
                 tpl.save(temp_buf)
                 temp_buf.seek(0)
 
                 doc = Document(temp_buf)
+                # Replace [short_link] manually with hyperlink in output Word
                 for p in doc.paragraphs:
                     if "[short_link]" in p.text:
                         parts = p.text.split("[short_link]")
@@ -297,14 +298,15 @@ def page_generate():
         if st.session_state.show_preview and selected_name:
             row = df[df[col_name] == selected_name].iloc[0]
             tpl = DocxTemplate(template_file)
-            tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+            # Render short_link asli untuk preview langsung muncul
+            tpl.render({"nama_penyelenggara": row[col_name], "short_link": str(row[col_link])})
             temp_buf = BytesIO()
             tpl.save(temp_buf)
             temp_buf.seek(0)
 
             doc = Document(temp_buf)
 
-            # Preview interaktif dengan highlight
+            # Preview interaktif dengan highlight nama & link
             render_interactive_preview(doc, [str(row[col_name]), str(row[col_link])])
 
             preview_buf = BytesIO()
