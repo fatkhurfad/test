@@ -173,105 +173,89 @@ def check_session_timeout():
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
-    col1, col2 = st.columns([1, 2])
+    template_file = st.file_uploader("Upload Template Word (.docx) — Drag & Drop atau klik", type="docx", accept_multiple_files=False)
+    data_file = st.file_uploader("Upload Data Excel (.xlsx) — Drag & Drop atau klik", type="xlsx", accept_multiple_files=False)
 
-    with col1:
-        template_file = st.file_uploader("Upload Template Word (.docx) — Drag & Drop atau klik", type="docx", accept_multiple_files=False)
-        data_file = st.file_uploader("Upload Data Excel (.xlsx) — Drag & Drop atau klik", type="xlsx", accept_multiple_files=False)
+    if template_file and data_file:
+        try:
+            df = pd.read_excel(data_file)
+            st.success(f"Data Excel berhasil diupload dengan {len(df)} baris")
+            st.dataframe(df)
 
-        if template_file and data_file:
-            try:
-                df = pd.read_excel(data_file)
-                st.success(f"Data Excel berhasil diupload dengan {len(df)} baris")
-                st.dataframe(df)
+            col_name = st.selectbox("Pilih kolom Nama", df.columns)
+            col_link = st.selectbox("Pilih kolom Link", df.columns)
 
-                col_name = st.selectbox("Pilih kolom Nama", df.columns)
-                col_link = st.selectbox("Pilih kolom Link", df.columns)
+            search_name = st.text_input("Cari Nama (ketik untuk filter)", "")
+            filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
+            selected_name = st.selectbox("Pilih Nama untuk Preview", filtered_names)
 
-                search_name = st.text_input("Cari Nama (ketik untuk filter)", "")
-                filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
-                selected_name = st.selectbox("Pilih Nama untuk Preview", filtered_names)
+            st.session_state.df = df
+            st.session_state.col_name = col_name
+            st.session_state.col_link = col_link
+            st.session_state.selected_name = selected_name
+            st.session_state.template_file = template_file
 
-                st.session_state.df = df
-                st.session_state.col_name = col_name
-                st.session_state.col_link = col_link
-                st.session_state.selected_name = selected_name
-                st.session_state.template_file = template_file
+        except Exception as e:
+            st.error(f"Gagal membaca file Excel: {e}")
 
-            except Exception as e:
-                st.error(f"Gagal membaca file Excel: {e}")
+        if 'show_preview' not in st.session_state:
+            st.session_state.show_preview = True
 
-    with col2:
-        if (
-            "df" in st.session_state and
-            "col_name" in st.session_state and
-            "col_link" in st.session_state and
-            "selected_name" in st.session_state and
-            "template_file" in st.session_state
-        ):
-            df = st.session_state.df
-            col_name = st.session_state.col_name
-            col_link = st.session_state.col_link
-            selected_name = st.session_state.selected_name
-            template_file = st.session_state.template_file
+        toggle = st.button("Sembunyikan Preview" if st.session_state.show_preview else "Tampilkan Preview")
+        if toggle:
+            st.session_state.show_preview = not st.session_state.show_preview
 
-            if 'show_preview' not in st.session_state:
-                st.session_state.show_preview = True
+        if st.session_state.show_preview and selected_name:
+            row = df[df[col_name] == selected_name].iloc[0]
+            tpl = DocxTemplate(template_file)
+            tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+            temp_buf = BytesIO()
+            tpl.save(temp_buf)
+            temp_buf.seek(0)
 
-            toggle = st.button("Sembunyikan Preview" if st.session_state.show_preview else "Tampilkan Preview")
-            if toggle:
-                st.session_state.show_preview = not st.session_state.show_preview
+            doc = Document(temp_buf)
+            for p in doc.paragraphs:
+                if "[short_link]" in p.text:
+                    parts = p.text.split("[short_link]")
+                    p.clear()
+                    if parts[0]:
+                        run_before = p.add_run(parts[0])
+                        run_before.font.name = "Arial"
+                        run_before.font.size = Pt(12)
+                    add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                    if len(parts) > 1 and parts[1]:
+                        run_after = p.add_run(parts[1])
+                        run_after.font.name = "Arial"
+                        run_after.font.size = Pt(12)
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            for p in doc.paragraphs:
+                for run in p.runs:
+                    run.font.name = "Arial"
+                    run.font.size = Pt(12)
 
-            if st.session_state.show_preview and selected_name:
-                row = df[df[col_name] == selected_name].iloc[0]
-                tpl = DocxTemplate(template_file)
-                tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
-                temp_buf = BytesIO()
-                tpl.save(temp_buf)
-                temp_buf.seek(0)
+            render_docx_preview_visual(doc)
 
-                doc = Document(temp_buf)
-                for p in doc.paragraphs:
-                    if "[short_link]" in p.text:
-                        parts = p.text.split("[short_link]")
-                        p.clear()
-                        if parts[0]:
-                            run_before = p.add_run(parts[0])
-                            run_before.font.name = "Arial"
-                            run_before.font.size = Pt(12)
-                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                        if len(parts) > 1 and parts[1]:
-                            run_after = p.add_run(parts[1])
-                            run_after.font.name = "Arial"
-                            run_after.font.size = Pt(12)
-                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                for p in doc.paragraphs:
-                    for run in p.runs:
-                        run.font.name = "Arial"
-                        run.font.size = Pt(12)
+            preview_buf = BytesIO()
+            doc.save(preview_buf)
+            preview_buf.seek(0)
 
-                render_docx_preview_visual(doc)
+            st.download_button(
+                label=f"⬇️ Download Preview Surat ({row[col_name]})",
+                data=preview_buf.getvalue(),
+                file_name=f"preview_{row[col_name]}.docx",
+            )
 
-                preview_buf = BytesIO()
-                doc.save(preview_buf)
-                preview_buf.seek(0)
+        if st.button("Generate Semua Surat"):
+            with st.spinner("Sedang memproses surat..."):
+                zip_file, log = generate_letters_with_progress(template_file, df, col_name, col_link)
+            st.success("✅ Proses generate selesai!")
+            st.toast("Surat berhasil digenerate!", icon="✅")
+            st.download_button("Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip")
+            with st.expander("Lihat Log Generate"):
+                st.dataframe(pd.DataFrame(log))
 
-                st.download_button(
-                    label=f"⬇️ Download Preview Surat ({row[col_name]})",
-                    data=preview_buf.getvalue(),
-                    file_name=f"preview_{row[col_name]}.docx",
-                )
-
-            if st.button("Generate Semua Surat"):
-                with st.spinner("Sedang memproses surat..."):
-                    zip_file, log = generate_letters_with_progress(template_file, df, col_name, col_link)
-                st.success("✅ Proses generate selesai!")
-                st.toast("Surat berhasil digenerate!", icon="✅")
-                st.download_button("Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip")
-                with st.expander("Lihat Log Generate"):
-                    st.dataframe(pd.DataFrame(log))
-        else:
-            st.info("Silakan upload template dan data Excel serta pilih kolom dan nama untuk preview.")
+    else:
+        st.info("Silakan upload template dan data Excel terlebih dahulu.")
 
 def page_home():
     st.title("🏠 Dashboard")
@@ -368,7 +352,8 @@ def show_login():
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
+        submitted = st.form_submit_button("Login")
+        if submitted:
             if username == "admin" and password == "surat123":
                 st.session_state.login_state = True
                 st.session_state.username = username
