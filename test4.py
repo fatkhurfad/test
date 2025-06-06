@@ -1,17 +1,18 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+from io import BytesIO
 from docxtpl import DocxTemplate
 from docx import Document
 from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from io import BytesIO
 import zipfile
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+import re
 
-# Kamus Bahasa
+# Bahasa (singkat, tambahkan sesuai kebutuhan)
 LANGUAGES = {
     "id": {
         "welcome": "Selamat Datang di Aplikasi Surat Massal PMT",
@@ -41,6 +42,8 @@ LANGUAGES = {
         "logout_msg": "👋 Terima Kasih!",
         "logout_submsg": "Terima kasih telah menggunakan aplikasi ini.\n\n**See you!**",
         "back_login": "🔐 Kembali ke Halaman Login",
+        "login_fail": "Username atau password salah.",
+        "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
         "total_letters": "Total Surat Dibuat",
         "letters_success": "Surat Berhasil",
         "letters_failed": "Surat Gagal",
@@ -60,8 +63,6 @@ LANGUAGES = {
         ),
         "app_version": "**Versi Aplikasi:** 1.0.0",
         "no_maintenance": "⚙️ *Tidak ada pemeliharaan sistem saat ini.*",
-        "upload_first": "Silakan upload template dan data Excel terlebih dahulu.",
-        "login_fail": "Username atau password salah.",
     },
     "en": {
         "welcome": "Welcome to PMT Bulk Letter Application",
@@ -91,6 +92,8 @@ LANGUAGES = {
         "logout_msg": "👋 Thank You!",
         "logout_submsg": "Thank you for using this application.\n\n**See you!**",
         "back_login": "🔐 Back to Login Page",
+        "login_fail": "Wrong username or password.",
+        "upload_first": "Please upload the template and Excel data first.",
         "total_letters": "Total Letters Created",
         "letters_success": "Successful Letters",
         "letters_failed": "Failed Letters",
@@ -110,8 +113,6 @@ LANGUAGES = {
         ),
         "app_version": "**App Version:** 1.0.0",
         "no_maintenance": "⚙️ *No system maintenance currently.*",
-        "upload_first": "Please upload the template and Excel data first.",
-        "login_fail": "Wrong username or password.",
     },
 }
 
@@ -158,56 +159,6 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-def render_docx_preview_visual(doc):
-    st.subheader(t("preview_letter"))
-    style = """
-    <style>
-        .docx-preview {
-            background: #fff;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            text-align: justify;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .docx-preview p {
-            margin-bottom: 1em;
-        }
-        .docx-preview a {
-            color: #1a0dab;
-            text-decoration: underline;
-        }
-        .docx-preview strong {
-            font-weight: bold;
-        }
-        .docx-preview em {
-            font-style: italic;
-        }
-    </style>
-    """
-    html = '<div class="docx-preview">'
-    for p in doc.paragraphs:
-        if not p.text.strip():
-            continue
-        run_html = ""
-        for run in p.runs:
-            text = run.text.replace("\n", "<br>")
-            if run.bold and run.italic:
-                run_html += f"<strong><em>{text}</em></strong>"
-            elif run.bold:
-                run_html += f"<strong>{text}</strong>"
-            elif run.italic:
-                run_html += f"<em>{text}</em>"
-            else:
-                run_html += text
-        html += f"<p>{run_html}</p>"
-    html += "</div>"
-    st.markdown(style + html, unsafe_allow_html=True)
-
 def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip = BytesIO()
     log = []
@@ -226,6 +177,7 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
                 temp_buf.seek(0)
 
                 doc = Document(temp_buf)
+
                 for p in doc.paragraphs:
                     if "[short_link]" in p.text:
                         parts = p.text.split("[short_link]")
@@ -258,61 +210,27 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
             status_text.text(f"{t('processing_letters')} {idx + 1} / {total}")
 
     output_zip.seek(0)
-
-    if "generate_log" not in st.session_state:
-        st.session_state.generate_log = []
-    st.session_state.generate_log.extend(log)
-
-    st.session_state.template_count = 1
-    st.session_state.last_data_rows = total
-
     return output_zip, log
-
-SESSION_TIMEOUT = timedelta(minutes=15)
-
-def check_session_timeout():
-    if "last_active" in st.session_state:
-        if datetime.now() - st.session_state.last_active > SESSION_TIMEOUT:
-            st.session_state.clear()
-            st.rerun()
-    st.session_state.last_active = datetime.now()
 
 def page_generate():
     st.title(t("generate_title"))
 
-    template_file = st.file_uploader(t("upload_template"), type="docx", accept_multiple_files=False)
-    data_file = st.file_uploader(t("upload_data"), type="xlsx", accept_multiple_files=False)
+    template_file = st.file_uploader(t("upload_template"), type="docx")
+    data_file = st.file_uploader(t("upload_data"), type="xlsx")
 
     if template_file and data_file:
-        try:
-            df = pd.read_excel(data_file)
-            st.success(f"{len(df)} rows loaded successfully")
-            st.dataframe(df)
+        df = pd.read_excel(data_file)
+        st.success(f"{len(df)} rows loaded successfully")
+        st.dataframe(df)
 
-            col_name = st.selectbox(t("select_name_col"), df.columns)
-            col_link = st.selectbox(t("select_link_col"), df.columns)
+        col_name = st.selectbox(t("select_name_col"), df.columns)
+        col_link = st.selectbox(t("select_link_col"), df.columns)
 
-            search_name = st.text_input(t("search_name"), "")
-            filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
-            selected_name = st.selectbox(t("select_name_preview"), filtered_names)
+        search_name = st.text_input(t("search_name"), "")
+        filtered_names = df[df[col_name].astype(str).str.contains(search_name, case=False, na=False)][col_name].unique()
+        selected_name = st.selectbox(t("select_name_preview"), filtered_names)
 
-            st.session_state.df = df
-            st.session_state.col_name = col_name
-            st.session_state.col_link = col_link
-            st.session_state.selected_name = selected_name
-            st.session_state.template_file = template_file
-
-        except Exception as e:
-            st.error(f"Failed to read Excel file: {e}")
-
-        if 'show_preview' not in st.session_state:
-            st.session_state.show_preview = True
-
-        toggle = st.button(t("hide_preview") if st.session_state.show_preview else t("show_preview"))
-        if toggle:
-            st.session_state.show_preview = not st.session_state.show_preview
-
-        if st.session_state.show_preview and selected_name:
+        if st.session_state.get("show_preview", True) and selected_name:
             row = df[df[col_name] == selected_name].iloc[0]
             tpl = DocxTemplate(template_file)
             tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
@@ -321,26 +239,8 @@ def page_generate():
             temp_buf.seek(0)
 
             doc = Document(temp_buf)
-            for p in doc.paragraphs:
-                if "[short_link]" in p.text:
-                    parts = p.text.split("[short_link]")
-                    p.clear()
-                    if parts[0]:
-                        run_before = p.add_run(parts[0])
-                        run_before.font.name = "Arial"
-                        run_before.font.size = Pt(12)
-                    add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                    if len(parts) > 1 and parts[1]:
-                        run_after = p.add_run(parts[1])
-                        run_after.font.name = "Arial"
-                        run_after.font.size = Pt(12)
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            for p in doc.paragraphs:
-                for run in p.runs:
-                    run.font.name = "Arial"
-                    run.font.size = Pt(12)
-
-            render_docx_preview_visual(doc)
+            preview_text = "\n\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+            st.text_area(t("preview_letter"), preview_text, height=300)
 
             preview_buf = BytesIO()
             doc.save(preview_buf)
@@ -356,98 +256,13 @@ def page_generate():
             with st.spinner(t("processing_letters")):
                 zip_file, log = generate_letters_with_progress(template_file, df, col_name, col_link)
             st.success(t("generate_done"))
-            st.toast(t("generate_done"), icon="✅")
             st.download_button(t("download_all_zip"), zip_file.getvalue(), file_name="surat_massal.zip")
             with st.expander(t("view_log")):
                 st.dataframe(pd.DataFrame(log))
-
     else:
         st.info(t("upload_first"))
 
-def page_home():
-    st.title(t("dashboard_title"))
-    st.markdown(f"{t('welcome')}, **{st.session_state.username}**!")
-
-    with st.expander(t("tips"), expanded=True):
-        st.write(t("tips_content"))
-
-    st.markdown("---")
-
-    generate_log = st.session_state.get("generate_log", [])
-
-    total_surat = len(generate_log)
-    berhasil = sum(1 for item in generate_log if item["Status"].startswith("✅"))
-    gagal = total_surat - berhasil
-
-    template_tersedia = st.session_state.get("template_count", 1)
-    data_peserta_terakhir = st.session_state.get("last_data_rows", 0)
-
-    statistik_data = {
-        "Statistik": [
-            t("total_letters"),
-            t("letters_success"),
-            t("letters_failed"),
-            t("templates_available"),
-            t("last_data_rows"),
-        ],
-        "Jumlah": [
-            total_surat,
-            berhasil,
-            gagal,
-            template_tersedia,
-            data_peserta_terakhir,
-        ],
-    }
-    df_statistik = pd.DataFrame(statistik_data)
-    st.markdown("### " + t("dashboard_title"))
-    st.table(df_statistik)
-
-    st.markdown("---")
-
-    st.markdown("### " + t("letters_success_vs_failed"))
-    fig, ax = plt.subplots()
-    ax.bar([t("letters_success"), t("letters_failed")], [berhasil, gagal], color=["green", "red"])
-    ax.set_ylabel(t("total_letters"))
-    ax.set_title(t("letters_success_vs_failed"))
-    st.pyplot(fig)
-
-    st.markdown("---")
-
-    st.markdown("### " + t("percentage_letters"))
-    fig2, ax2 = plt.subplots()
-    if total_surat > 0:
-        ax2.pie(
-            [berhasil, gagal],
-            labels=[t("letters_success"), t("letters_failed")],
-            autopct="%1.1f%%",
-            colors=["green", "red"],
-            startangle=90,
-            wedgeprops={"edgecolor": "black"},
-        )
-        ax2.axis("equal")
-        st.pyplot(fig2)
-    else:
-        st.write(t("no_data"))
-
-    st.markdown("---")
-
-    st.markdown("### " + t("last_activity"))
-    aktivitas = []
-    for item in reversed(generate_log[-5:]):
-        aktivitas.append({"Aktivitas": f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]})
-    if aktivitas:
-        df_aktivitas = pd.DataFrame(aktivitas)
-        st.table(df_aktivitas)
-    else:
-        st.write(t("no_activity"))
-
-    st.markdown("---")
-
-    st.markdown(t("app_version"))
-    st.markdown(t("no_maintenance"))
-
 def show_login():
-    st.set_page_config(page_title="Login | Surat Massal PMT", layout="centered")
     st.title(t("welcome"))
     st.markdown(t("login"))
     with st.form("login_form"):
@@ -459,29 +274,33 @@ def show_login():
                 st.session_state.login_state = True
                 st.session_state.username = username
                 st.session_state.logout_message = False
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error(t("login_fail"))
 
 def show_main_app():
-    check_session_timeout()
     st.sidebar.success(f"{t('welcome')}, {st.session_state.username}")
-
     if st.sidebar.button(t("logout_button")):
         st.session_state.logout_message = True
         st.session_state.login_state = False
         st.session_state.username = ""
-        st.rerun()
+        st.experimental_rerun()
 
     st.sidebar.title(t("choose_language"))
-    lang = st.sidebar.selectbox("", ["id", "en"], index=0 if st.session_state.get("lang", "id")=="id" else 1, format_func=lambda x: "Indonesia" if x=="id" else "English")
+    lang = st.sidebar.selectbox(
+        "",
+        ["id", "en"],
+        index=0 if st.session_state.get("lang", "id") == "id" else 1,
+        format_func=lambda x: "Indonesia" if x == "id" else "English",
+    )
     st.session_state.lang = lang
 
     st.sidebar.title("Menu")
     page = st.sidebar.radio("Navigasi", [t("dashboard_title"), t("generate_title")])
-
     if page == t("dashboard_title"):
-        page_home()
+        st.title(t("dashboard_title"))
+        st.write(f"Selamat datang, **{st.session_state.username}**!")
+        st.write("Dashboard belum dibuat.")
     else:
         page_generate()
 
@@ -492,12 +311,11 @@ if "lang" not in st.session_state:
     st.session_state.lang = "id"
 
 if st.session_state.get("logout_message", False):
-    st.set_page_config(page_title=t("logout_msg"), layout="centered")
     st.title(t("logout_msg"))
     st.markdown(t("logout_submsg"))
     if st.button(t("back_login")):
         st.session_state.logout_message = False
-        st.rerun()
+        st.experimental_rerun()
 elif st.session_state.login_state:
     show_main_app()
 else:
