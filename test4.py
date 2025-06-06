@@ -51,19 +51,17 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-def render_docx_preview_better(doc):
-    st.subheader("📖 Pratinjau Surat Mirip Word")
-
+# Fungsi preview Word dengan format dasar (bold, italic, indent)
+def render_docx_preview(doc):
+    st.subheader("📖 Pratinjau Surat (Format Mirip Word)")
     html = (
         "<div style='background:#fff; padding:30px; border:1px solid #ddd; "
         "border-radius:8px; font-family:Arial, sans-serif; font-size:14px; "
         "line-height:1.6; text-align:justify;'>"
     )
-
     for p in doc.paragraphs:
         if not p.text.strip():
             continue
-
         runs_html = ""
         for run in p.runs:
             text = run.text.replace("\n", "<br>")
@@ -73,18 +71,14 @@ def render_docx_preview_better(doc):
             if run.italic:
                 style += "font-style:italic;"
             runs_html += f"<span style='{style}'>{text}</span>"
-
         indent = ""
         if p.paragraph_format.first_line_indent:
             indent = f"padding-left: {int(p.paragraph_format.first_line_indent.pt)}pt;"
-
         html += f"<p style='{indent} margin-bottom:1em;'>{runs_html}</p>"
-
     html += "</div>"
-
     st.markdown(html, unsafe_allow_html=True)
 
-# Fungsi generate surat batch dengan progress bar
+# Generate surat batch dengan progress bar
 def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip = BytesIO()
     log = []
@@ -97,9 +91,7 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
         for idx, row in df.iterrows():
             try:
                 tpl = DocxTemplate(template_file)
-                tpl.render(
-                    {"nama_penyelenggara": row[col_name], "short_link": "[short_link]"}
-                )
+                tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
                 temp_buf = BytesIO()
                 tpl.save(temp_buf)
                 temp_buf.seek(0)
@@ -134,22 +126,20 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
     output_zip.seek(0)
 
-    # Simpan log generate surat ke session_state supaya bisa diakses dashboard
     if "generate_log" not in st.session_state:
         st.session_state.generate_log = []
     st.session_state.generate_log.extend(log)
 
-    # Simpan juga info template & data rows
-    st.session_state.template_count = 1  # misal 1, bisa dikembangkan simpan banyak
+    st.session_state.template_count = 1
     st.session_state.last_data_rows = total
 
     return output_zip, log
 
+# Halaman Dashboard dengan tips, statistik, chart, aktivitas
 def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
 
-    # Tips cepat di atas
     st.markdown("### Tips Cepat")
     st.info(
         "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
@@ -232,6 +222,7 @@ def page_home():
     st.markdown("**Versi Aplikasi:** 1.0.0")
     st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
 
+# Halaman Generate Surat dengan preview dan download
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
@@ -270,7 +261,7 @@ def page_generate():
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
-            render_docx_preview_better(doc)
+            render_docx_preview(doc)
 
             preview_buf = BytesIO()
             doc.save(preview_buf)
@@ -292,6 +283,7 @@ def page_generate():
             )
             st.dataframe(pd.DataFrame(log))
 
+# Halaman Login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
@@ -308,6 +300,7 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
+# Main app dengan sidebar dan routing
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
