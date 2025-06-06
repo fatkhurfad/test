@@ -52,7 +52,7 @@ def add_hyperlink(paragraph, text, url):
     paragraph._p.append(hyperlink)
 
 # Fungsi preview Word dengan format dasar (bold, italic, indent)
-def render_docx_preview(doc):
+def render_docx_preview_better(doc):
     st.subheader("📖 Pratinjau Surat (Format Mirip Word)")
     html = (
         "<div style='background:#fff; padding:30px; border:1px solid #ddd; "
@@ -102,10 +102,14 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
                         parts = p.text.split("[short_link]")
                         p.clear()
                         if parts[0]:
-                            p.add_run(parts[0])
+                            run_before = p.add_run(parts[0])
+                            run_before.font.name = "Arial"
+                            run_before.font.size = Pt(12)
                         add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                        if len(parts) > 1:
-                            p.add_run(parts[1])
+                        if len(parts) > 1 and parts[1]:
+                            run_after = p.add_run(parts[1])
+                            run_after.font.name = "Arial"
+                            run_after.font.size = Pt(12)
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
                 for p in doc.paragraphs:
@@ -135,7 +139,6 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
     return output_zip, log
 
-# Halaman Dashboard dengan tips, statistik, chart, aktivitas
 def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
@@ -222,7 +225,6 @@ def page_home():
     st.markdown("**Versi Aplikasi:** 1.0.0")
     st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
 
-# Halaman Generate Surat dengan preview dan download
 def page_generate():
     st.title("🚀 Generate Surat Massal")
 
@@ -240,28 +242,37 @@ def page_generate():
         if nama_preview:
             row = df[df[col_name] == nama_preview].iloc[0]
             tpl = DocxTemplate(template_file)
+
             tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
             temp_buf = BytesIO()
             tpl.save(temp_buf)
             temp_buf.seek(0)
 
             doc = Document(temp_buf)
+
+            # Ganti [short_link] dengan hyperlink aktif
             for p in doc.paragraphs:
                 if "[short_link]" in p.text:
                     parts = p.text.split("[short_link]")
                     p.clear()
                     if parts[0]:
-                        p.add_run(parts[0])
+                        run_before = p.add_run(parts[0])
+                        run_before.font.name = "Arial"
+                        run_before.font.size = Pt(12)
                     add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                    if len(parts) > 1:
-                        p.add_run(parts[1])
+                    if len(parts) > 1 and parts[1]:
+                        run_after = p.add_run(parts[1])
+                        run_after.font.name = "Arial"
+                        run_after.font.size = Pt(12)
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+            # Atur font seluruh run agar konsisten
             for p in doc.paragraphs:
                 for run in p.runs:
                     run.font.name = "Arial"
                     run.font.size = Pt(12)
 
-            render_docx_preview(doc)
+            render_docx_preview_better(doc)
 
             preview_buf = BytesIO()
             doc.save(preview_buf)
@@ -283,7 +294,6 @@ def page_generate():
             )
             st.dataframe(pd.DataFrame(log))
 
-# Halaman Login
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
     st.title("📬 Selamat Datang di Aplikasi Surat Massal PMT")
@@ -300,7 +310,6 @@ def show_login():
             else:
                 st.error("Username atau password salah.")
 
-# Main app dengan sidebar dan routing
 def show_main_app():
     st.sidebar.success(f"Login sebagai: {st.session_state.username}")
     if st.sidebar.button("Logout"):
