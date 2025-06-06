@@ -51,7 +51,6 @@ def add_hyperlink(paragraph, text, url):
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
-# Fungsi preview Word dengan format dasar (bold, italic, indent)
 def render_docx_preview_better(doc):
     st.subheader("📖 Pratinjau Surat (Format Mirip Word)")
     html = (
@@ -78,7 +77,6 @@ def render_docx_preview_better(doc):
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
-# Generate surat batch dengan progress bar
 def generate_letters_with_progress(template_file, df, col_name, col_link):
     output_zip = BytesIO()
     log = []
@@ -139,17 +137,101 @@ def generate_letters_with_progress(template_file, df, col_name, col_link):
 
     return output_zip, log
 
+def page_generate():
+    st.title("🚀 Generate Surat Massal")
+
+    template_file = st.file_uploader("Upload Template Word (.docx)", type="docx")
+    data_file = st.file_uploader("Upload Data Excel (.xlsx)", type="xlsx")
+
+    if template_file and data_file:
+        df = pd.read_excel(data_file)
+        st.dataframe(df)
+
+        col_name = st.selectbox("Pilih kolom Nama", df.columns)
+        col_link = st.selectbox("Pilih kolom Link", df.columns)
+
+        tab_preview, tab_generate = st.tabs(["Preview Surat", "Generate Surat"])
+
+        with tab_preview:
+            nama_preview = st.selectbox("Pilih Nama untuk Preview", df[col_name].unique())
+            if nama_preview:
+                row = df[df[col_name] == nama_preview].iloc[0]
+                tpl = DocxTemplate(template_file)
+
+                tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+                temp_buf = BytesIO()
+                tpl.save(temp_buf)
+                temp_buf.seek(0)
+
+                doc = Document(temp_buf)
+
+                for p in doc.paragraphs:
+                    if "[short_link]" in p.text:
+                        parts = p.text.split("[short_link]")
+                        p.clear()
+                        if parts[0]:
+                            run_before = p.add_run(parts[0])
+                            run_before.font.name = "Arial"
+                            run_before.font.size = Pt(12)
+                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                        if len(parts) > 1 and parts[1]:
+                            run_after = p.add_run(parts[1])
+                            run_after.font.name = "Arial"
+                            run_after.font.size = Pt(12)
+                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+                for p in doc.paragraphs:
+                    for run in p.runs:
+                        run.font.name = "Arial"
+                        run.font.size = Pt(12)
+
+                render_docx_preview_better(doc)
+
+                preview_buf = BytesIO()
+                doc.save(preview_buf)
+                preview_buf.seek(0)
+
+                st.download_button(
+                    label=f"⬇️ Download Preview Surat ({row[col_name]})",
+                    data=preview_buf.getvalue(),
+                    file_name=f"preview_{row[col_name]}.docx",
+                )
+
+        with tab_generate:
+            with st.expander("Tips Cepat"):
+                st.write(
+                    """
+                    1. Upload template dan data Excel di halaman Generate Surat.
+                    2. Pilih kolom nama dan link sesuai data.
+                    3. Klik Generate Semua Surat dan tunggu hingga selesai.
+                    4. Unduh file ZIP berisi surat-surat yang sudah jadi.
+                    """
+                )
+            if st.button("Generate Semua Surat"):
+                with st.spinner("Sedang memproses surat..."):
+                    zip_file, log = generate_letters_with_progress(
+                        template_file, df, col_name, col_link
+                    )
+                st.success("✅ Proses generate selesai!")
+                st.download_button(
+                    "Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip"
+                )
+                with st.expander("Lihat Log Generate"):
+                    st.dataframe(pd.DataFrame(log))
+
 def page_home():
     st.title("🏠 Dashboard")
     st.markdown(f"Selamat datang, **{st.session_state.username}**!")
 
-    st.markdown("### Tips Cepat")
-    st.info(
-        "1. Upload template dan data Excel di halaman **Generate Surat**.\n"
-        "2. Pilih kolom nama dan link sesuai data.\n"
-        "3. Klik **Generate Semua Surat** dan tunggu hingga selesai.\n"
-        "4. Unduh file ZIP berisi surat-surat yang sudah jadi."
-    )
+    with st.expander("Tips Cepat", expanded=True):
+        st.write(
+            """
+            1. Upload template dan data Excel di halaman **Generate Surat**.
+            2. Pilih kolom nama dan link sesuai data.
+            3. Klik **Generate Semua Surat** dan tunggu hingga selesai.
+            4. Unduh file ZIP berisi surat-surat yang sudah jadi.
+            """
+        )
     st.markdown("---")
 
     generate_log = st.session_state.get("generate_log", [])
@@ -224,75 +306,6 @@ def page_home():
 
     st.markdown("**Versi Aplikasi:** 1.0.0")
     st.markdown("⚙️ *Tidak ada pemeliharaan sistem saat ini.*")
-
-def page_generate():
-    st.title("🚀 Generate Surat Massal")
-
-    template_file = st.file_uploader("Upload Template Word (.docx)", type="docx")
-    data_file = st.file_uploader("Upload Data Excel (.xlsx)", type="xlsx")
-
-    if template_file and data_file:
-        df = pd.read_excel(data_file)
-        st.dataframe(df)
-
-        col_name = st.selectbox("Pilih kolom Nama", df.columns)
-        col_link = st.selectbox("Pilih kolom Link", df.columns)
-
-        nama_preview = st.selectbox("Pilih Nama untuk Preview", df[col_name].unique())
-        if nama_preview:
-            row = df[df[col_name] == nama_preview].iloc[0]
-            tpl = DocxTemplate(template_file)
-
-            tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
-            temp_buf = BytesIO()
-            tpl.save(temp_buf)
-            temp_buf.seek(0)
-
-            doc = Document(temp_buf)
-
-            # Ganti [short_link] dengan hyperlink aktif
-            for p in doc.paragraphs:
-                if "[short_link]" in p.text:
-                    parts = p.text.split("[short_link]")
-                    p.clear()
-                    if parts[0]:
-                        run_before = p.add_run(parts[0])
-                        run_before.font.name = "Arial"
-                        run_before.font.size = Pt(12)
-                    add_hyperlink(p, str(row[col_link]), str(row[col_link]))
-                    if len(parts) > 1 and parts[1]:
-                        run_after = p.add_run(parts[1])
-                        run_after.font.name = "Arial"
-                        run_after.font.size = Pt(12)
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-            # Atur font seluruh run agar konsisten
-            for p in doc.paragraphs:
-                for run in p.runs:
-                    run.font.name = "Arial"
-                    run.font.size = Pt(12)
-
-            render_docx_preview_better(doc)
-
-            preview_buf = BytesIO()
-            doc.save(preview_buf)
-            preview_buf.seek(0)
-
-            st.download_button(
-                label=f"⬇️ Download Preview Surat ({row[col_name]})",
-                data=preview_buf.getvalue(),
-                file_name=f"preview_{row[col_name]}.docx",
-            )
-
-        if st.button("Generate Semua Surat"):
-            zip_file, log = generate_letters_with_progress(
-                template_file, df, col_name, col_link
-            )
-            st.success("✅ Proses generate selesai!")
-            st.download_button(
-                "Download Semua Surat (ZIP)", zip_file.getvalue(), file_name="surat_massal.zip"
-            )
-            st.dataframe(pd.DataFrame(log))
 
 def show_login():
     st.set_page_config(page_title="Generator Surat Hyperlink", layout="centered")
