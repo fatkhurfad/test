@@ -6,21 +6,12 @@ from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from io import BytesIO
 import zipfile
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
-import unicodedata, string, re
 
-# =======================
-# Streamlit config (panggil sekali di awal)
-# =======================
-st.set_page_config(page_title="Surat Massal PMT", layout="centered")
-
-# =======================
-# Kamus Bahasa (pakai punyamu — tidak diubah)
-# =======================
+# Kamus Bahasa
 LANGUAGES = {
     "id": {
         "welcome": "Selamat Datang di Aplikasi Surat Massal PMT",
@@ -127,9 +118,46 @@ LANGUAGES = {
 def t(key):
     return LANGUAGES.get(st.session_state.lang, LANGUAGES["id"]).get(key, key)
 
-# =======================
-# Preview DOCX (punyamu, tidak diubah)
-# =======================
+def add_hyperlink(paragraph, text, url):
+    part = paragraph.part
+    r_id = part.relate_to(
+        url,
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+        is_external=True,
+    )
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), r_id)
+
+    new_run = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    rFonts = OxmlElement("w:rFonts")
+    rFonts.set(qn("w:ascii"), "Arial")
+    rFonts.set(qn("w:hAnsi"), "Arial")
+    rPr.append(rFonts)
+
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), "24")
+    rPr.append(sz)
+
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0000FF")
+    rPr.append(color)
+
+    underline = OxmlElement("w:u")
+    underline.set(qn("w:val"), "single")
+    rPr.append(underline)
+
+    new_run.append(rPr)
+
+    text_elem = OxmlElement("w:t")
+    text_elem.set(qn("xml:space"), "preserve")
+    text_elem.text = text
+    new_run.append(text_elem)
+
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+
 def render_docx_preview_visual(doc):
     st.subheader(t("preview_letter"))
     style = """
@@ -146,10 +174,19 @@ def render_docx_preview_visual(doc):
             max-height: 400px;
             overflow-y: auto;
         }
-        .docx-preview p { margin-bottom: 1em; }
-        .docx-preview a { color: #1a0dab; text-decoration: underline; }
-        .docx-preview strong { font-weight: bold; }
-        .docx-preview em { font-style: italic; }
+        .docx-preview p {
+            margin-bottom: 1em;
+        }
+        .docx-preview a {
+            color: #1a0dab;
+            text-decoration: underline;
+        }
+        .docx-preview strong {
+            font-weight: bold;
+        }
+        .docx-preview em {
+            font-style: italic;
+        }
     </style>
     """
     html = '<div class="docx-preview">'
@@ -171,129 +208,66 @@ def render_docx_preview_visual(doc):
     html += "</div>"
     st.markdown(style + html, unsafe_allow_html=True)
 
-# =======================
-# Helpers
-# =======================
-def safe_filename_base(name: str):
-    valid = f"-_.() {string.ascii_letters}{string.digits}"
-    norm = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
-    cleaned = "".join(c for c in norm if c in valid).strip()
-    return cleaned or "surat"
-
-def _clear_paragraph(p):
-    for r in p.runs:
-        r._r.getparent().remove(r._r)
-
-def replace_placeholder_with_hyperlink(p, text_before, url, text_after):
-    _clear_paragraph(p)
-    if text_before:
-        rb = p.add_run(text_before); rb.font.name = "Arial"; rb.font.size = Pt(12)
-
-    if url:
-        r_id = p.part.relate_to(url, RT.HYPERLINK, is_external=True)
-        hyperlink = OxmlElement("w:hyperlink"); hyperlink.set(qn("r:id"), r_id)
-        new_run = OxmlElement("w:r"); rPr = OxmlElement("w:rPr")
-
-        rFonts = OxmlElement("w:rFonts")
-        rFonts.set(qn("w:ascii"), "Arial"); rFonts.set(qn("w:hAnsi"), "Arial")
-        rPr.append(rFonts)
-
-        sz = OxmlElement("w:sz"); sz.set(qn("w:val"), "24"); rPr.append(sz)
-        color = OxmlElement("w:color"); color.set(qn("w:val"), "0000FF"); rPr.append(color)
-        underline = OxmlElement("w:u"); underline.set(qn("w:val"), "single"); rPr.append(underline)
-
-        new_run.append(rPr)
-        text_elem = OxmlElement("w:t"); text_elem.set(qn("xml:space"), "preserve"); text_elem.text = str(url)
-        new_run.append(text_elem)
-        hyperlink.append(new_run)
-        p._p.append(hyperlink)
-    else:
-        rp = p.add_run("(tautan tidak tersedia)"); rp.font.name = "Arial"; rp.font.size = Pt(12)
-
-    if text_after:
-        ra = p.add_run(text_after); ra.font.name = "Arial"; ra.font.size = Pt(12)
-
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-def normalize_url(u: str):
-    u = ("" if pd.isna(u) else str(u)).strip()
-    if not u:
-        return ""
-    if not (u.startswith("http://") or u.startswith("https://")):
-        u = "https://" + u
-    return u
-
-# =======================
-# Generate (pakai kolom No + prefix file)
-# =======================
 def generate_letters_with_progress(template_file, df, col_name, col_link):
-    df[col_link] = df[col_link].map(normalize_url)
-
     output_zip = BytesIO()
     log = []
-    pad_width = st.session_state.get("pad_width", len(str(len(df))))
-    used_names = set()
 
     with zipfile.ZipFile(output_zip, "w") as zf:
         total = len(df)
         progress_bar = st.progress(0)
         status_text = st.empty()
 
-        for i, (idx, row) in enumerate(df.iterrows(), start=1):
+        for idx, row in df.iterrows():
             try:
                 tpl = DocxTemplate(template_file)
-                tpl.render({
-                    "nama_penyelenggara": row[col_name],
-                    "short_link": "[short_link]",
-                    "no": int(row["No"]),
-                })
-                temp_buf = BytesIO(); tpl.save(temp_buf); temp_buf.seek(0)
+                tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+                temp_buf = BytesIO()
+                tpl.save(temp_buf)
+                temp_buf.seek(0)
 
                 doc = Document(temp_buf)
-                pattern = re.escape("[short_link]")
                 for p in doc.paragraphs:
-                    if re.search(pattern, p.text):
+                    if "[short_link]" in p.text:
                         parts = p.text.split("[short_link]")
-                        before = parts[0] if len(parts) > 0 else ""
-                        after  = parts[1] if len(parts) > 1 else ""
-                        replace_placeholder_with_hyperlink(p, before, row[col_link], after)
+                        p.clear()
+                        if parts[0]:
+                            run_before = p.add_run(parts[0])
+                            run_before.font.name = "Arial"
+                            run_before.font.size = Pt(12)
+                        add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                        if len(parts) > 1 and parts[1]:
+                            run_after = p.add_run(parts[1])
+                            run_after.font.name = "Arial"
+                            run_after.font.size = Pt(12)
+                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-                # styling umum (skip paragraf yg punya hyperlink)
                 for p in doc.paragraphs:
-                    if p._p.xpath(".//w:hyperlink"):  # biar hyperlink tetap biru/underline
-                        continue
                     for run in p.runs:
-                        run.font.name = "Arial"; run.font.size = Pt(12)
+                        run.font.name = "Arial"
+                        run.font.size = Pt(12)
 
-                final_buf = BytesIO(); doc.save(final_buf)
-
-                base = safe_filename_base(row[col_name])
-                prefix = f"{int(row['No']):0{pad_width}d}"
-                candidate = f"{prefix} - {base}.docx"
-                n = 1
-                while candidate.lower() in used_names:
-                    n += 1
-                    candidate = f"{prefix} - {base} ({n}).docx"
-                used_names.add(candidate.lower())
-
-                zf.writestr(candidate, final_buf.getvalue())
+                final_buf = BytesIO()
+                doc.save(final_buf)
+                zf.writestr(f"{row[col_name]}.docx", final_buf.getvalue())
                 log.append({"Nama": row[col_name], "Status": "✅ Berhasil"})
             except Exception as e:
-                log.append({"Nama": row.get(col_name, '(unknown)'), "Status": f"❌ Gagal: {e}"})
+                log.append({"Nama": row[col_name], "Status": f"❌ Gagal: {str(e)}"})
 
-            progress = int(i / total * 100)
+            progress = int((idx + 1) / total * 100)
             progress_bar.progress(progress)
-            status_text.text(f"{t('processing_letters')} {i} / {total}")
+            status_text.text(f"{t('processing_letters')} {idx + 1} / {total}")
 
     output_zip.seek(0)
-    st.session_state.generate_log = st.session_state.get("generate_log", []) + log
+
+    if "generate_log" not in st.session_state:
+        st.session_state.generate_log = []
+    st.session_state.generate_log.extend(log)
+
     st.session_state.template_count = 1
-    st.session_state.last_data_rows = len(df)
+    st.session_state.last_data_rows = total
+
     return output_zip, log
 
-# =======================
-# Session & Pages
-# =======================
 SESSION_TIMEOUT = timedelta(minutes=15)
 
 def check_session_timeout():
@@ -305,18 +279,13 @@ def check_session_timeout():
 
 def page_generate():
     st.title(t("generate_title"))
-    template_file = st.file_uploader(t("upload_template"), type="docx")
-    data_file = st.file_uploader(t("upload_data"), type="xlsx")
+
+    template_file = st.file_uploader(t("upload_template"), type="docx", accept_multiple_files=False)
+    data_file = st.file_uploader(t("upload_data"), type="xlsx", accept_multiple_files=False)
 
     if template_file and data_file:
         try:
             df = pd.read_excel(data_file)
-
-            # Tambah kolom No otomatis di paling depan
-            if "No" not in df.columns:
-                df.insert(0, "No", range(1, len(df) + 1))
-            st.session_state.pad_width = len(str(len(df)))
-
             st.success(f"{len(df)} rows loaded successfully")
             st.dataframe(df)
 
@@ -335,34 +304,48 @@ def page_generate():
 
         except Exception as e:
             st.error(f"Failed to read Excel file: {e}")
-            return
 
         if 'show_preview' not in st.session_state:
             st.session_state.show_preview = True
-        if st.button(t("hide_preview") if st.session_state.show_preview else t("show_preview")):
+
+        toggle = st.button(t("hide_preview") if st.session_state.show_preview else t("show_preview"))
+        if toggle:
             st.session_state.show_preview = not st.session_state.show_preview
 
         if st.session_state.show_preview and selected_name:
             row = df[df[col_name] == selected_name].iloc[0]
             tpl = DocxTemplate(template_file)
-            tpl.render({
-                "nama_penyelenggara": row[col_name],
-                "short_link": "[short_link]",
-                "no": int(row["No"]),
-            })
-            temp_buf = BytesIO(); tpl.save(temp_buf); temp_buf.seek(0)
+            tpl.render({"nama_penyelenggara": row[col_name], "short_link": "[short_link]"})
+            temp_buf = BytesIO()
+            tpl.save(temp_buf)
+            temp_buf.seek(0)
 
             doc = Document(temp_buf)
             for p in doc.paragraphs:
                 if "[short_link]" in p.text:
                     parts = p.text.split("[short_link]")
-                    before = parts[0] if len(parts) > 0 else ""
-                    after  = parts[1] if len(parts) > 1 else ""
-                    replace_placeholder_with_hyperlink(p, before, row[col_link], after)
+                    p.clear()
+                    if parts[0]:
+                        run_before = p.add_run(parts[0])
+                        run_before.font.name = "Arial"
+                        run_before.font.size = Pt(12)
+                    add_hyperlink(p, str(row[col_link]), str(row[col_link]))
+                    if len(parts) > 1 and parts[1]:
+                        run_after = p.add_run(parts[1])
+                        run_after.font.name = "Arial"
+                        run_after.font.size = Pt(12)
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            for p in doc.paragraphs:
+                for run in p.runs:
+                    run.font.name = "Arial"
+                    run.font.size = Pt(12)
 
             render_docx_preview_visual(doc)
 
-            preview_buf = BytesIO(); doc.save(preview_buf); preview_buf.seek(0)
+            preview_buf = BytesIO()
+            doc.save(preview_buf)
+            preview_buf.seek(0)
+
             st.download_button(
                 label=f"{t('download_preview')} ({row[col_name]})",
                 data=preview_buf.getvalue(),
@@ -377,6 +360,7 @@ def page_generate():
             st.download_button(t("download_all_zip"), zip_file.getvalue(), file_name="surat_massal.zip")
             with st.expander(t("view_log")):
                 st.dataframe(pd.DataFrame(log))
+
     else:
         st.info(t("upload_first"))
 
@@ -390,6 +374,7 @@ def page_home():
     st.markdown("---")
 
     generate_log = st.session_state.get("generate_log", [])
+
     total_surat = len(generate_log)
     berhasil = sum(1 for item in generate_log if item["Status"].startswith("✅"))
     gagal = total_surat - berhasil
@@ -406,7 +391,11 @@ def page_home():
             t("last_data_rows"),
         ],
         "Jumlah": [
-            total_surat, berhasil, gagal, template_tersedia, data_peserta_terakhir,
+            total_surat,
+            berhasil,
+            gagal,
+            template_tersedia,
+            data_peserta_terakhir,
         ],
     }
     df_statistik = pd.DataFrame(statistik_data)
@@ -414,14 +403,16 @@ def page_home():
     st.table(df_statistik)
 
     st.markdown("---")
+
     st.markdown("### " + t("letters_success_vs_failed"))
     fig, ax = plt.subplots()
     ax.bar([t("letters_success"), t("letters_failed")], [berhasil, gagal], color=["green", "red"])
     ax.set_ylabel(t("total_letters"))
     ax.set_title(t("letters_success_vs_failed"))
-    st.pyplot(fig); plt.close(fig)
+    st.pyplot(fig)
 
     st.markdown("---")
+
     st.markdown("### " + t("percentage_letters"))
     fig2, ax2 = plt.subplots()
     if total_surat > 0:
@@ -434,27 +425,29 @@ def page_home():
             wedgeprops={"edgecolor": "black"},
         )
         ax2.axis("equal")
-        st.pyplot(fig2); plt.close(fig2)
+        st.pyplot(fig2)
     else:
         st.write(t("no_data"))
 
     st.markdown("---")
+
     st.markdown("### " + t("last_activity"))
-    aktivitas = [{"Aktivitas": f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]}
-                 for item in reversed(generate_log[-5:])]
+    aktivitas = []
+    for item in reversed(generate_log[-5:]):
+        aktivitas.append({"Aktivitas": f"{t('generate_title')} untuk {item['Nama']}", "Status": item["Status"]})
     if aktivitas:
-        st.table(pd.DataFrame(aktivitas))
+        df_aktivitas = pd.DataFrame(aktivitas)
+        st.table(df_aktivitas)
     else:
         st.write(t("no_activity"))
 
     st.markdown("---")
+
     st.markdown(t("app_version"))
     st.markdown(t("no_maintenance"))
 
-# =======================
-# Login & Shell
-# =======================
 def show_login():
+    st.set_page_config(page_title="Login | Surat Massal PMT", layout="centered")
     st.title(t("welcome"))
     st.markdown(t("login"))
     with st.form("login_form"):
@@ -473,6 +466,7 @@ def show_login():
 def show_main_app():
     check_session_timeout()
     st.sidebar.success(f"{t('welcome')}, {st.session_state.username}")
+
     if st.sidebar.button(t("logout_button")):
         st.session_state.logout_message = True
         st.session_state.login_state = False
@@ -480,13 +474,12 @@ def show_main_app():
         st.rerun()
 
     st.sidebar.title(t("choose_language"))
-    lang = st.sidebar.selectbox("", ["id", "en"],
-                                index=0 if st.session_state.get("lang", "id") == "id" else 1,
-                                format_func=lambda x: "Indonesia" if x == "id" else "English")
+    lang = st.sidebar.selectbox("", ["id", "en"], index=0 if st.session_state.get("lang", "id")=="id" else 1, format_func=lambda x: "Indonesia" if x=="id" else "English")
     st.session_state.lang = lang
 
     st.sidebar.title("Menu")
     page = st.sidebar.radio("Navigasi", [t("dashboard_title"), t("generate_title")])
+
     if page == t("dashboard_title"):
         page_home()
     else:
@@ -494,10 +487,12 @@ def show_main_app():
 
 if "login_state" not in st.session_state:
     st.session_state.login_state = False
+
 if "lang" not in st.session_state:
     st.session_state.lang = "id"
 
 if st.session_state.get("logout_message", False):
+    st.set_page_config(page_title=t("logout_msg"), layout="centered")
     st.title(t("logout_msg"))
     st.markdown(t("logout_submsg"))
     if st.button(t("back_login")):
